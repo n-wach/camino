@@ -11,7 +11,7 @@ There are two completmentary parts of this repo:
 ### Arduino
 
 Here is a simple starting Arduino setup.  Upload it to your Arduino Mega, along with `SerialSalve.h` and `SerialSlave.cpp`.
-```arduino
+```C
 #include "SerialSlave.h"
 #define ADDRESS XX //replace XX with an address other than 0
 #define RATE 9600 //higher rates are supported
@@ -68,7 +68,7 @@ Callables act as a link between an Arduino function and the corresponding Python
 ### Built-in Callables
 
 There are a few internal Callables that expose some simple Arduino functions:
-```arduino
+```C
 Callable internalCallables[] = {
   {"num_calls", numberOfCallables}, //returns number of callables
   {"get_nth_call", getNthCallable}, //returns shortName of nth callable
@@ -89,7 +89,7 @@ Create a function of the type `void myFunction(byte dataLength, byte *data){...}
 
 Create a new Callable in callables.  Make sure your short name is no more than 16 characters long.  For instance:
 
-```
+```C
 Callable callables[] = {
     //Your callables here
     //Format:
@@ -107,7 +107,7 @@ Data will be passed from the RPi to your function as an array with a given lengt
 
 All functions must be `void`.  To return something to the RPi, use `returns(...)`.  This sets what data will be sent back to the RPi when your function finishes.  There are several possible arguments for `returns(...)`:
 
-```arduino
+```C
 void returns(const char* string); //returns("hello");
 void returns(byte v); //returns(1);
 void returns(byte dataLength, data *dataArray); //returns(dataLength, data); as in echo
