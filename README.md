@@ -147,7 +147,7 @@ If some part of the transmission fails (such as an invalid checksum), the slave 
 
 |1 byte|1 byte|
 |------|------|
-|0xA9  |0xA9  |
+|0xB8  |0xB8  |
 
 ### Communication flow
 
