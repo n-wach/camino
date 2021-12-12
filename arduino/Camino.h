@@ -1,15 +1,15 @@
-#ifndef SerialSlave_h
-#define SerialSlave_h
+#ifndef Camino_h
+#define Camino_h
 
 #include <Arduino.h>
 
 const byte MASTER_COMMAND_MAX_DATA_BYTES = 16;
 const byte SLAVE_RESPONSE_MAX_DATA_BYTES = 16;
 
-class SerialSlave
+class Camino
 {
   public:
-    SerialSlave();
+    Camino();
     void open(long baudRate, byte slaveAddr, byte transmitterEnablePin);
     void respondToCommandSendingNoData();
     void respondToCommandSendingWithData(byte dataLength, byte data[]);
@@ -53,6 +53,6 @@ void processCommandFromMaster(byte commandByteFromMaster,
 void respondAccordingly();
 
 
-extern SerialSlave serialSlave;
+extern Camino camino;
 
 #endif

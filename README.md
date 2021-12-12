@@ -14,7 +14,7 @@ There are two completmentary parts of this repo:
 
 ### Arduino
 
-Here is a simple starting Arduino setup.  Upload it to your Arduino Mega, along with `SerialSalve.h` and `SerialSlave.cpp`.
+Here is a simple starting Arduino setup.  Upload it to your Arduino Mega, along with `Camino.h` and `Camino.cpp`.
 ```C
 #include "Camino.h"
 #define ADDRESS 17 // address can be any value from 1 to 255
