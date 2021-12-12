@@ -1,5 +1,5 @@
 #include "wiring_private.h"
-#include "SerialSlave.h"
+#include "Camino.h"
 
 
 //
@@ -60,8 +60,8 @@ byte dataArrayFromMaster[MASTER_COMMAND_MAX_DATA_BYTES];
 //
 // declare the serial slave object and make it externally available
 //
-SerialSlave serialSlave;
-SerialSlave::SerialSlave()
+Camino camino;
+Camino::Camino()
 {
 }
 
@@ -72,7 +72,7 @@ SerialSlave::SerialSlave()
 //            slaveAddr = this slave's address (1 - 255)
 //            transmitterEnablePin = pin number to enable/disable the transmit line
 //
-void SerialSlave::open(long baudRate, byte slaveAddr, byte transmitterEnablePin)
+void Camino::open(long baudRate, byte slaveAddr, byte transmitterEnablePin)
 {
   uint16_t clockRate;
 
@@ -125,7 +125,7 @@ void SerialSlave::open(long baudRate, byte slaveAddr, byte transmitterEnablePin)
 //
 // send response to master indicating the command was received and no data is being sent
 //
-void SerialSlave::respondToCommandSendingNoData()
+void Camino::respondToCommandSendingNoData()
 {
   //
   // build then send packet to master indicate command was received OK
@@ -143,7 +143,7 @@ void SerialSlave::respondToCommandSendingNoData()
 //    Enter:  dataLength = number of data bytes to transmit to the master
 //            data -> array of bytes to send
 //
-void SerialSlave::respondToCommandSendingWithData(byte dataLength, byte data[])
+void Camino::respondToCommandSendingWithData(byte dataLength, byte data[])
 {
   int dataArrayToMasterIdx;
   int i;
@@ -323,7 +323,7 @@ ISR(USART2_RX_vect)
         //
         // checksum error, request that the command be resent
         //
-        serialSlave.sendResendCommandToMaster();
+        camino.sendResendCommandToMaster();
         slaveState = SLAVE_STATE_WAITING_FOR_HEADER_BYTE_1;
       }
       break;
@@ -334,7 +334,7 @@ ISR(USART2_RX_vect)
 //
 // send response to master indicating the command should be resent
 //
-void SerialSlave::sendResendCommandToMaster(void)
+void Camino::sendResendCommandToMaster(void)
 {
   //
   // build then send packet to master indicate command should be resent
@@ -352,7 +352,7 @@ void SerialSlave::sendResendCommandToMaster(void)
 //    Enter:  dataLengthToMaster = number of data bytes
 //            dataArrayToMaster -> data array with data to send to the master
 //
-void SerialSlave::sentResponsePacketToMaster(void)
+void Camino::sentResponsePacketToMaster(void)
 {
   //
   // enable the RS485 transmit lines for this board
@@ -514,8 +514,8 @@ void processCommandFromMaster(byte commandByteFromMaster,
 void respondAccordingly() {
   if(returnWithData) {
     byte l = min(SLAVE_RESPONSE_MAX_DATA_BYTES, returnLength);
-    serialSlave.respondToCommandSendingWithData(l, returnData);
+    camino.respondToCommandSendingWithData(l, returnData);
   } else {
-    serialSlave.respondToCommandSendingNoData();
+    camino.respondToCommandSendingNoData();
   }
 }

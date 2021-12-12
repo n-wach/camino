@@ -1,9 +1,9 @@
-#include "SerialSlave.h"
+#include "Camino.h"
 
 #define ADDRESS 15
 
 void setup() {
-  serialSlave.open(9600, ADDRESS, 40);
+  camino.open(9600, ADDRESS, 40);
 }
 
 void loop() {
@@ -19,7 +19,7 @@ Callable callables[] = {
 
 byte numberOfExternalCallables = sizeof(callables) / sizeof(Callable);
 
-//Example that returns the sum of some data (%256)
+// Example that returns the sum of some data (%256)
 void add(byte dataLength, byte *dataArray) {
   byte sum = 0;
   for(byte i = 0; i < dataLength; i++){
@@ -28,7 +28,7 @@ void add(byte dataLength, byte *dataArray) {
   returns(sum);
 }
 
-//Example that returns a string
+// Example that returns a string
 void sayHi(byte dataLength, byte *dataArray) {
   returns("I can say hi!");
 }

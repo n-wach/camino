@@ -1,6 +1,4 @@
 from serial import Serial
-from threading import Thread
-from time import time, sleep
 
 M_MASTER_COMMAND_MAX_DATA_BYTES = 64
 M_SLAVE_RESPONSE_MAX_DATA_BYTES = 64
@@ -46,7 +44,7 @@ checksum
 """
 
 
-class SerialMaster:
+class SerialConnection:
     def __init__(self, port="/dev/ttyS0", baud=115200):
         self.port = Serial(port=port, baudrate=baud, timeout=MASTER_COMMAND_TIMEOUT_PERIOD_S)
         self.port.set_input_flow_control(True)
