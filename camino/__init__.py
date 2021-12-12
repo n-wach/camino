@@ -155,44 +155,40 @@ class SerialConnection:
         return -1
 
 
-FORMAT_LIST = 0
-FORMAT_BYTE = 1
-FORMAT_STRING = 2
-NO_RESPONSE = 3
-
-
 class Callable:
     def __init__(self, arduino, command, name=None):
         self.command = command
         self.arduino = arduino
         if name is None:
-            self.name = self.arduino.get_nth_call(command, format_out=FORMAT_STRING)
+            self.name = self.arduino.get_nth_call(command, format_out=str)
         else:
             self.name = name
 
-    def call(self, data=[], format_out=FORMAT_BYTE):
+    def call(self, data=None, format_out=int):
+        """
+        format_out: int, str, bytes, None
+        """
         serial = self.arduino.serial
-        to_send = None
+        to_send = data
         if isinstance(data, int):
             to_send = [data]
         elif isinstance(data, str):
             to_send = [ord(c) for c in data]
-        else:
-            to_send = data
+        elif data is None:
+            to_send = []
 
         # call
-        response = False if format_out == NO_RESPONSE else True
+        response = False if format_out is None else True
         out = serial.send_command_to_slave(self.arduino.address, self.command, to_send, response)
 
         if isinstance(out, int):
-            return 0
+            return None
 
-        if format_out == FORMAT_BYTE:
+        if format_out == int:
             return out[0]
-        elif format_out == FORMAT_STRING:
+        elif format_out == str:
             return "".join(chr(val) for val in out)
         else:
-            # FORMAT_LIST
             return out
 
 
@@ -206,7 +202,7 @@ class Arduino:
         self.fetch_callables()
         # test
         print("Arduino at {}...".format(address))
-        print(self.echo("Ready!", format_out=FORMAT_STRING))
+        print(self.echo("Ready!", format_out=str))
 
     def add_callable(self, callable):
         self.callables[callable.name] = callable
@@ -214,8 +210,8 @@ class Arduino:
         print("Callable added: {}".format(callable.name))
 
     def fetch_callables(self):
-        self.callable_count = self.num_calls()
-        print("There are", self.callable_count, "callables")
-        for i in range(len(self.callables), self.callable_count):
+        callable_count = self.num_calls()
+        print("There are", callable_count, "callables")
+        for i in range(len(self.callables), callable_count):
             self.add_callable(Callable(self, i))
 

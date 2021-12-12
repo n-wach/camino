@@ -1,10 +1,10 @@
 # Camino
 
 Camino is a library allowing communication over a serial connection between Python 3 
-and up to 255 Arduino Megas over a serial connection.  It provides a simple way to 
-call functions remotely on an Arduino. These calls can send and receive data. 
-Besides built in functions (`digital_write`, `pin_mode`, `analog_read`, etc.), 
-approximately 230 user-defined functions can be defined.
+and up to 255 Arduino Megas.  It provides a simple way to call functions remotely on 
+an Arduino. These calls can send and receive data. Besides built in functions 
+(`digital_write`, `pin_mode`, `analog_read`, etc.), approximately 230 user-defined 
+functions can be defined.
 
 There are two completmentary parts of this repo:
  - `/arduino` for the Arduino library, including an example project
@@ -52,18 +52,18 @@ Install the `camino` python package, then open a shell and run the following:
 from camino import SerialConnection, Arduino
 
 # Create connection
-connection = SerialConnection(dev='/dev/ttyS0', baud=9600)
+connection = SerialConnection(port='/dev/ttyS0', baud=9600)
 arduino = Arduino(connection, 17) # where 17 is the ADDRESS of the Arduino
 
 # Test connection
-print(arduino.echo("Hello World!", format_out=FORMAT_STRING))
+print(arduino.echo("Hello World!", format_out=str))
 # Should print "Hello World!" to the console
 
 # Now you can control the Arduino however you'd like:
 arduino.pin_mode([12, 0]) # set pin 12 to INPUT
 arduino.pin_mode([16, 1]) # set pin 16 to OUTPUT
 
-value = arduino.digital_read(12, format_out=FORMAT_BYTE) # we want to get a single value; without format_out this would return a list with a single element
+value = arduino.digital_read(12, format_out=int) # we want to get a single value; without format_out this would return a list with a single element
 
 arduino.digital_write([16, value]) 
 ```
@@ -193,9 +193,10 @@ function, although only one command can be sent and received at a time across al
 given `SerialConnection`.
 
 To help you send and receive different types of data, you can specify a `format_out` as one of the following:
- * `FORMAT_BYTE` - single value (0-255) as a python `int`
- * `FORMAT_LIST` - array of up to 16 values (0-255) as a python `list` of `int`s
- * `FORMAT_STRING` - string of up to 16 chars as a python `str` 
+ * `int` - single value (0-255) as a python `int`
+ * `bytes` - array of up to 16 values (0-255) as a python `bytes` object
+ * `str` - string of up to 16 chars as a python `str`
+ * `None` - if no response is expected
 
 If a function fails all 3 times, `Arduino.serial.status` will be set to `MASTER_STATUS_SENDING_COMMAND_FAILED (4)` 
 and the call will return `-1`.
