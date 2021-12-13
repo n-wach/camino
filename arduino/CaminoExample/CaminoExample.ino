@@ -1,13 +1,16 @@
+#define PORT 2
 #include "Camino.h"
 
-#define ADDRESS 15
-
 void setup() {
-  camino.open(9600, ADDRESS, 40);
+  camino.open(9600, 15, 40);
+  pinMode(13, OUTPUT);
 }
 
 void loop() {
-  
+  //digitalWrite(13, HIGH);
+  //delay(100);
+  //digitalWrite(13, LOW);
+  //delay(100);
 }
 
 Func sayHi;

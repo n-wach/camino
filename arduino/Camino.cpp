@@ -1,6 +1,72 @@
 #include "wiring_private.h"
 #include "Camino.h"
 
+// PORT should be -1 (for blank), 0, 1, or 2; depending on board
+#ifndef PORT
+  // We default to the USB port (UART 0). If you want to use something
+  // else, you'll need to manually download and include the library,
+  // and change this number.
+  #define PORT 0
+#endif
+
+#if PORT == -1
+  #define UCSRNA            UCSRA
+  #define UCSRNB            UCSRB
+  #define UCSRNC            UCSRC
+  #define U2XN              U2X
+  #define UBRRNH            UBRRH
+  #define UBRRNL            UBRRL
+  #define RXENN             RXEN
+  #define TXENN             TXEN
+  #define RXCIEN            RXCIE
+  #define USARTN_RX_vect    USART_RX_vect
+  #define USARTN_UDRE_vect  USART_UDRE_vect
+  #define UDRN              UDR
+  #define UDRIEN            UDRIE
+#elif PORT == 0
+  #define UCSRNA            UCSR0A
+  #define UCSRNB            UCSR0B
+  #define UCSRNC            UCSR0C
+  #define U2XN              U2X0
+  #define UBRRNH            UBRR0H
+  #define UBRRNL            UBRR0L
+  #define RXENN             RXEN0
+  #define TXENN             TXEN0
+  #define RXCIEN            RXCIE0
+  #define USARTN_RX_vect    USART_RX_vect    // no number for some reason
+  #define USARTN_UDRE_vect  USART_UDRE_vect  // no number for some reason
+  #define UDRN              UDR0
+  #define UDRIEN            UDRIE0
+#elif PORT == 1
+  #define UCSRNA            UCSR1A
+  #define UCSRNB            UCSR1B
+  #define UCSRNC            UCSR1C
+  #define U2XN              U2X1
+  #define UBRRNH            UBRR1H
+  #define UBRRNL            UBRR1L
+  #define RXENN             RXEN1
+  #define TXENN             TXEN1
+  #define RXCIEN            RXCIE1
+  #define USARTN_RX_vect    USART1_RX_vect
+  #define USARTN_UDRE_vect  USART1_UDRE_vect
+  #define UDRN              UDR1
+  #define UDRIEN            UDRIE1
+#elif PORT == 2
+  #define UCSRNA            UCSR2A
+  #define UCSRNB            UCSR2B
+  #define UCSRNC            UCSR2C
+  #define U2XN              U2X2
+  #define UBRRNH            UBRR2H
+  #define UBRRNL            UBRR2L
+  #define RXENN             RXEN2
+  #define TXENN             TXEN2
+  #define RXCIEN            RXCIE2
+  #define USARTN_RX_vect    USART2_RX_vect
+  #define USARTN_UDRE_vect  USART2_UDRE_vect
+  #define UDRN              UDR2
+  #define UDRIEN            UDRIE2
+#endif
+
 // constants for the command packet that the master sends to the slave
 const byte MASTER_COMMAND_HEADER_BYTE_1 = 0xAA;
 const byte MASTER_COMMAND_HEADER_BYTE_2 = 0x55;
@@ -58,28 +124,27 @@ void Camino::open(long baudRate, byte slaveAddr, byte transmitterEnablePin)
 
   // remember the address this slave should respond too
   thisSlavesAddress = slaveAddr;
-  
+
   // configure but disable transmit
   transmitEnablePin = transmitterEnablePin;
   pinMode(transmitEnablePin, OUTPUT);
   digitalWrite(transmitEnablePin, RS485_TRANSMIT_DISABLED);
-  
-  // set the baud rate assuming a 16Mhz clock and double speed operation
-  clockRate = (uint16_t) ((16000000 / 8L / baudRate) - 1L);
-  UCSR2A = 1 << U2X2;
-  UBRR2H = clockRate >> 8;
-  UBRR2L = clockRate & 0xff;
+
+  clockRate = (uint16_t) ((F_CPU / (8L * baudRate)) - 1L);
+  UCSRNA = 1 << U2XN;
+  UBRRNH = clockRate >> 8;
+  UBRRNL = clockRate & 0xff;
 
   // enable transmitting and receiving
-  sbi(UCSR2B, RXEN2);
-  sbi(UCSR2B, TXEN2);
+  sbi(UCSRNB, RXENN);
+  sbi(UCSRNB, TXENN);
 
   // set 8 bit, no parity, 1 stop
-  UCSR2C = 0x06;
+  UCSRNC = 0x06;
 
   // enable interrupts for serial receive complete
-  sbi(UCSR2B, RXCIE2);
- 
+  sbi(UCSRNB, RXCIEN);
+
   // initialize state variables
   slaveState = SLAVE_STATE_WAITING_FOR_HEADER_BYTE_1;
   startTimeForPacketFromHost = millis();
@@ -106,18 +171,18 @@ void Camino::respondToCommandSendingWithData(byte dataLength, byte data[])
   int i;
   byte checksum;
   byte c;
-  
+
   // build then packet to master indicate command was received OK with included data
   dataArrayToMasterIdx = 0;
   dataArrayToMaster[dataArrayToMasterIdx] = SLAVE_RESPONSE_RECEIVED_COMMAND_SENDING_DATA;
   dataArrayToMasterIdx++;
   dataArrayToMaster[dataArrayToMasterIdx] = SLAVE_RESPONSE_RECEIVED_COMMAND_SENDING_DATA;
   dataArrayToMasterIdx++;
-  
+
   dataArrayToMaster[dataArrayToMasterIdx] = dataLength;
   dataArrayToMasterIdx++;
   checksum = dataLength;
-  
+
   for (i = 0; i < dataLength; i++) {
     c = data[i];
     dataArrayToMaster[dataArrayToMasterIdx] = c;
@@ -132,7 +197,7 @@ void Camino::respondToCommandSendingWithData(byte dataLength, byte data[])
 }
 
 // interrupt service routine for characters received from the serial port
-ISR(USART2_RX_vect)
+ISR(USARTN_RX_vect)
 {
   byte c;
   unsigned long periodSinceBeginningOfPacket;
@@ -141,10 +206,10 @@ ISR(USART2_RX_vect)
   periodSinceBeginningOfPacket = millis() - startTimeForPacketFromHost;
   if (periodSinceBeginningOfPacket >= MASTER_COMMAND_TIMEOUT_PERIOD_MS)
     slaveState = SLAVE_STATE_WAITING_FOR_HEADER_BYTE_1;
-  
+
   // read the byte from the USART
-  c = UDR2;
-  
+  c = UDRN;
+
   // select the operation based on the current state
   switch(slaveState)
   {
@@ -232,10 +297,10 @@ ISR(USART2_RX_vect)
           // execute the command received from the host if
           processCommandFromMaster(commandByteFromMaster, dataLengthFromMaster, dataArrayFromMaster);
         }
-        
-        slaveState = SLAVE_STATE_WAITING_FOR_HEADER_BYTE_1; 
+
+        slaveState = SLAVE_STATE_WAITING_FOR_HEADER_BYTE_1;
       }
-      
+
       else
       {
         // checksum error, request that the command be resent
@@ -264,7 +329,7 @@ void Camino::sentResponsePacketToMaster(void)
 {
   // enable the RS485 transmit lines for this board
   digitalWrite(transmitEnablePin, RS485_TRANSMIT_ENABLED);
-  delayMicroseconds(18); 
+  delayMicroseconds(18);
 
   // This is a bit of a hack.  Add one byte to the number of characters transmitted.  This way
   // the transmit lines can be disabled as the last character is streamed out.  I tried
@@ -273,27 +338,27 @@ void Camino::sentResponsePacketToMaster(void)
 
   // transmit the first byte in the packet
   dataArrayToMasterIdx = 0;
-  UDR2 = dataArrayToMaster[dataArrayToMasterIdx];
+  UDRN = dataArrayToMaster[dataArrayToMasterIdx];
   dataArrayToMasterIdx++;
 
   // enable the interrupt that triggers when the transmit buffer is empty
-  sbi(UCSR2B, UDRIE2);
+  sbi(UCSRNB, UDRIEN);
 }
 
 // interrupt service routine indicating the USART is ready to transmit the next byte
-ISR(USART2_UDRE_vect)
+ISR(USARTN_UDRE_vect)
 {
   // check if there is any more data in the packet to send
   if (dataArrayToMasterIdx >= dataLengthToMaster)
   {
     // nothing left to transmit, disable the interrupt and disable driving the RS-485 TX lines
-    cbi(UCSR2B, UDRIE2);
+    cbi(UCSRNB, UDRIEN);
     digitalWrite(transmitEnablePin, RS485_TRANSMIT_DISABLED);
     return;
   }
 
   // transmit the next byte in the packet
-  UDR2 = dataArrayToMaster[dataArrayToMasterIdx];
+  UDRN = dataArrayToMaster[dataArrayToMasterIdx];
   dataArrayToMasterIdx++;
 }
 
@@ -349,7 +414,7 @@ void _analogWrite(byte dataLength, byte *dataArray) {
 }
 void _analogRead(byte dataLength, byte *dataArray) {
   int value = digitalRead(dataArray[0]);
-  byte arr[2] = {value%256, value};
+  byte arr[2] = {(byte) (value % 256), (byte) value};
   returns(2, arr);
 }
 
@@ -384,8 +449,8 @@ void returns(byte v) {
   returnWithData = true;
 }
 
-void processCommandFromMaster(byte commandByteFromMaster, 
-                              byte dataLengthFromMaster, 
+void processCommandFromMaster(byte commandByteFromMaster,
+                              byte dataLengthFromMaster,
                               byte dataArrayFromMaster[]){
   //by default we want no data returned
   returnWithData = false;
@@ -396,8 +461,8 @@ void processCommandFromMaster(byte commandByteFromMaster,
     c = callables[commandByteFromMaster - numberOfInternalCallables];
   }
   c.call(dataLengthFromMaster, dataArrayFromMaster);
-  
-  respondAccordingly();  
+
+  respondAccordingly();
 }
 
 void respondAccordingly() {
