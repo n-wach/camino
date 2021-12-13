@@ -1,28 +1,19 @@
 #include "wiring_private.h"
 #include "Camino.h"
 
-
-//
 // constants for the command packet that the master sends to the slave
-//
 const byte MASTER_COMMAND_HEADER_BYTE_1 = 0xAA;
 const byte MASTER_COMMAND_HEADER_BYTE_2 = 0x55;
 const unsigned long MASTER_COMMAND_TIMEOUT_PERIOD_MS = 100;
 const byte MASTER_COMMAND_MAX_PACKET_BYTES = MASTER_COMMAND_MAX_DATA_BYTES + 4;
 
-
-//
 // constants for the response packet that the slave sends to the master
-//
 const byte SLAVE_RESPONSE_RECEIVED_COMMAND = 0xA9;
 const byte SLAVE_RESPONSE_RECEIVED_COMMAND_SENDING_DATA =0xAC;
 const byte SLAVE_RESPONSE_RESEND_COMMAND =0xB8;
 const byte SLAVE_RESPONSE_MAX_PACKET_BYTES = SLAVE_RESPONSE_MAX_DATA_BYTES + 4;
 
-
-//
 // values for slaveState
-//
 const byte SLAVE_STATE_WAITING_FOR_HEADER_BYTE_1 = 0;
 const byte SLAVE_STATE_WAITING_FOR_HEADER_BYTE_2 = 1;
 const byte SLAVE_STATE_WAITING_FOR_SLAVE_ADDRESS = 2;
@@ -31,17 +22,11 @@ const byte SLAVE_STATE_WAITING_FOR_DATA_LENGTH_BYTE = 4;
 const byte SLAVE_STATE_WAITING_FOR_DATA_BYTES = 5;
 const byte SLAVE_STATE_WAITING_FOR_CHECKSUM_BYTE = 6;
 
-
-//
 // IO pin values
-//
 const int RS485_TRANSMIT_ENABLED = HIGH;
 const int RS485_TRANSMIT_DISABLED = LOW;
 
-
-//
 // variables global to this module
-//
 byte thisSlavesAddress;
 byte slaveState;
 unsigned long startTimeForPacketFromHost;
@@ -56,80 +41,54 @@ byte commandByteFromMaster;
 byte dataLengthFromMaster;
 byte dataArrayFromMaster[MASTER_COMMAND_MAX_DATA_BYTES];
 
-
-//
 // declare the serial slave object and make it externally available
-//
 Camino camino;
 Camino::Camino()
 {
 }
 
 
-//
 // open the serial slave port
-//    Enter:  baudRate = baud rate (ie 9600)
-//            slaveAddr = this slave's address (1 - 255)
-//            transmitterEnablePin = pin number to enable/disable the transmit line
-//
+//   baudRate: baud rate (ie 9600)
+//   slaveAddr: this slave's address (1 - 255)
+//   transmitterEnablePin: pin number to enable/disable the transmit line
 void Camino::open(long baudRate, byte slaveAddr, byte transmitterEnablePin)
 {
   uint16_t clockRate;
 
-  
-  //
   // remember the address this slave should respond too
-  //
   thisSlavesAddress = slaveAddr;
   
-  //
   // configure but disable transmit
-  //
   transmitEnablePin = transmitterEnablePin;
   pinMode(transmitEnablePin, OUTPUT);
   digitalWrite(transmitEnablePin, RS485_TRANSMIT_DISABLED);
   
-  //
   // set the baud rate assuming a 16Mhz clock and double speed operation
-  //
   clockRate = (uint16_t) ((16000000 / 8L / baudRate) - 1L);
   UCSR2A = 1 << U2X2;
   UBRR2H = clockRate >> 8;
   UBRR2L = clockRate & 0xff;
 
-  //
   // enable transmitting and receiving
-  //
   sbi(UCSR2B, RXEN2);
   sbi(UCSR2B, TXEN2);
 
-  //
   // set 8 bit, no parity, 1 stop
-  //
   UCSR2C = 0x06;
 
-  //
   // enable interrupts for serial receive complete
-  //
   sbi(UCSR2B, RXCIE2);
  
-  //
   // initialize state variables
-  //
   slaveState = SLAVE_STATE_WAITING_FOR_HEADER_BYTE_1;
   startTimeForPacketFromHost = millis();
 }
 
-
-
-//
 // send response to master indicating the command was received and no data is being sent
-//
 void Camino::respondToCommandSendingNoData()
 {
-  //
   // build then send packet to master indicate command was received OK
-  //
   dataArrayToMaster[0] = SLAVE_RESPONSE_RECEIVED_COMMAND;
   dataArrayToMaster[1] = SLAVE_RESPONSE_RECEIVED_COMMAND;
   dataLengthToMaster = 2;
@@ -138,11 +97,9 @@ void Camino::respondToCommandSendingNoData()
 
 
 
-//
 // send response with additional data to master indicating the command was received
-//    Enter:  dataLength = number of data bytes to transmit to the master
-//            data -> array of bytes to send
-//
+//   dataLength: number of data bytes to transmit to the master
+//   data: array of bytes to send
 void Camino::respondToCommandSendingWithData(byte dataLength, byte data[])
 {
   int dataArrayToMasterIdx;
@@ -150,9 +107,7 @@ void Camino::respondToCommandSendingWithData(byte dataLength, byte data[])
   byte checksum;
   byte c;
   
-  //
   // build then packet to master indicate command was received OK with included data
-  //
   dataArrayToMasterIdx = 0;
   dataArrayToMaster[dataArrayToMasterIdx] = SLAVE_RESPONSE_RECEIVED_COMMAND_SENDING_DATA;
   dataArrayToMasterIdx++;
@@ -163,72 +118,49 @@ void Camino::respondToCommandSendingWithData(byte dataLength, byte data[])
   dataArrayToMasterIdx++;
   checksum = dataLength;
   
-  for (i = 0; i < dataLength; i++)
-  {
+  for (i = 0; i < dataLength; i++) {
     c = data[i];
     dataArrayToMaster[dataArrayToMasterIdx] = c;
     dataArrayToMasterIdx++;
     checksum += c;
   }
-  
   dataArrayToMaster[dataArrayToMasterIdx] = checksum;
   dataArrayToMasterIdx++;
-  
   dataLengthToMaster = dataArrayToMasterIdx;
-  
-  //
-  // send the packet to the master
-  //
+
   sentResponsePacketToMaster();
 }
 
-//
 // interrupt service routine for characters received from the serial port
-//
 ISR(USART2_RX_vect)
 {
   byte c;
   unsigned long periodSinceBeginningOfPacket;
 
-
-
-  //
   // check for a timeout receiving data from the host
-  //
   periodSinceBeginningOfPacket = millis() - startTimeForPacketFromHost;
   if (periodSinceBeginningOfPacket >= MASTER_COMMAND_TIMEOUT_PERIOD_MS)
     slaveState = SLAVE_STATE_WAITING_FOR_HEADER_BYTE_1;
   
-  
-  //
   // read the byte from the USART
-  //
   c = UDR2;
   
-  //
   // select the operation based on the current state
-  //
   switch(slaveState)
   {
-    //
     // check if waiting for the first header byte
-    //
     case SLAVE_STATE_WAITING_FOR_HEADER_BYTE_1:
     {
       if (c == MASTER_COMMAND_HEADER_BYTE_1)
       {
-        //
         // received first header byte, start the timeout timer
-        //
         startTimeForPacketFromHost = millis();
         slaveState = SLAVE_STATE_WAITING_FOR_HEADER_BYTE_2;
       }
       break;
     }
 
-    //
     // check if waiting for the second header byte
-    //
     case SLAVE_STATE_WAITING_FOR_HEADER_BYTE_2:
     {
       if (c == MASTER_COMMAND_HEADER_BYTE_2)
@@ -238,9 +170,7 @@ ISR(USART2_RX_vect)
       break;
     }
 
-    //
     // check if waiting for the slave address
-    //
     case SLAVE_STATE_WAITING_FOR_SLAVE_ADDRESS:
     {
       if (c != 0)
@@ -254,9 +184,7 @@ ISR(USART2_RX_vect)
       break;
     }
 
-    //
     // check if waiting for the command byte
-    //
     case SLAVE_STATE_WAITING_FOR_COMMAND_BYTE:
     {
       commandByteFromMaster = c;
@@ -265,9 +193,7 @@ ISR(USART2_RX_vect)
       break;
     }
 
-    //
     // check if waiting for the date length byte
-    //
     case SLAVE_STATE_WAITING_FOR_DATA_LENGTH_BYTE:
     {
       dataLengthFromMaster = c;
@@ -284,9 +210,7 @@ ISR(USART2_RX_vect)
       break;
     }
 
-    //
     // check if waiting for the date bytes
-    //
     case SLAVE_STATE_WAITING_FOR_DATA_BYTES:
     {
       dataArrayFromMaster[dataArrayFromMasterIdx] = c;
@@ -297,21 +221,15 @@ ISR(USART2_RX_vect)
       break;
     }
 
-    //
     // check if waiting for the checksum byte
-    //
     case SLAVE_STATE_WAITING_FOR_CHECKSUM_BYTE:
     {
       if (c == checksum)
       {
-        //
         // verify this packet is for this slave
-        //
         if (slaveAddress == thisSlavesAddress)
         {
-          //
           // execute the command received from the host if
-          //
           processCommandFromMaster(commandByteFromMaster, dataLengthFromMaster, dataArrayFromMaster);
         }
         
@@ -320,9 +238,7 @@ ISR(USART2_RX_vect)
       
       else
       {
-        //
         // checksum error, request that the command be resent
-        //
         camino.sendResendCommandToMaster();
         slaveState = SLAVE_STATE_WAITING_FOR_HEADER_BYTE_1;
       }
@@ -331,78 +247,52 @@ ISR(USART2_RX_vect)
   }
 }
 
-//
 // send response to master indicating the command should be resent
-//
 void Camino::sendResendCommandToMaster(void)
 {
-  //
   // build then send packet to master indicate command should be resent
-  //
   dataArrayToMaster[0] = SLAVE_RESPONSE_RESEND_COMMAND;
   dataArrayToMaster[1] = SLAVE_RESPONSE_RESEND_COMMAND;
   dataLengthToMaster = 2;
   sentResponsePacketToMaster();
 }
 
-
-
-//
 // begin sending the response packet to the master
-//    Enter:  dataLengthToMaster = number of data bytes
-//            dataArrayToMaster -> data array with data to send to the master
-//
+//   dataLengthToMaster: number of data bytes
+//   dataArrayToMaster: data array with data to send to the master
 void Camino::sentResponsePacketToMaster(void)
 {
-  //
   // enable the RS485 transmit lines for this board
-  //
   digitalWrite(transmitEnablePin, RS485_TRANSMIT_ENABLED);
   delayMicroseconds(18); 
 
-  //
   // This is a bit of a hack.  Add one byte to the number of characters transmitted.  This way
   // the transmit lines can be disabled as the last character is streamed out.  I tried
   // using the TXC interrupt, but had no success.
-  //
   dataLengthToMaster++;
 
-  //
   // transmit the first byte in the packet
-  //
   dataArrayToMasterIdx = 0;
   UDR2 = dataArrayToMaster[dataArrayToMasterIdx];
   dataArrayToMasterIdx++;
-  
-  //
+
   // enable the interrupt that triggers when the transmit buffer is empty
-  //  
   sbi(UCSR2B, UDRIE2);
 }
 
-
-
-//
 // interrupt service routine indicating the USART is ready to transmit the next byte
-//
 ISR(USART2_UDRE_vect)
 {
-  //
   // check if there is any more data in the packet to send
-  //
   if (dataArrayToMasterIdx >= dataLengthToMaster)
   {
-    //
     // nothing left to transmit, disable the interrupt and disable driving the RS-485 TX lines
-    //
     cbi(UCSR2B, UDRIE2);
     digitalWrite(transmitEnablePin, RS485_TRANSMIT_DISABLED);
     return;
   }
-  
-  //
+
   // transmit the next byte in the packet
-  //
   UDR2 = dataArrayToMaster[dataArrayToMasterIdx];
   dataArrayToMasterIdx++;
 }
@@ -417,7 +307,6 @@ Callable internalCallables[] = {
   {"analog_read", _analogRead},
   {"analog_write", _analogWrite},
 };
-
 
 boolean returnWithData;
 byte returnLength;
