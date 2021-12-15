@@ -1,19 +1,14 @@
-#define PORT 2
 #include "Camino.h"
 
 void setup() {
-  camino.open(9600, 15, 40);
-  pinMode(13, OUTPUT);
+  camino.begin(9600);
 }
 
 void loop() {
-  //digitalWrite(13, HIGH);
-  //delay(100);
-  //digitalWrite(13, LOW);
-  //delay(100);
+
 }
 
-Func sayHi;
+Handler sayHi;
 
 Callable callables[] = {
   {"say_hi", sayHi},
