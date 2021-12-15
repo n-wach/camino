@@ -1,158 +1,101 @@
 from serial import Serial
+import time
 
-M_MASTER_COMMAND_MAX_DATA_BYTES = 64
-M_SLAVE_RESPONSE_MAX_DATA_BYTES = 64
-
-MASTER_COMMAND_HEADER_BYTE_1 = 0xAA
-MASTER_COMMAND_HEADER_BYTE_2 = 0x55
-MASTER_COMMAND_TIMEOUT_PERIOD_S = 0.1
-MASTER_COMMAND_MAX_PACKET_BYTES = M_MASTER_COMMAND_MAX_DATA_BYTES + 5
-
-SLAVE_RESPONSE_RECIEVED_COMMAND = 0xA9
-SLAVE_RESPONSE_RECIEVED_COMMAND_SENDING_DATA = 0xAC
-SLAVE_RESPONSE_RESEND_COMMAND = 0xB8
-SLAVE_RESPONSE_MAX_PACKET_BYTES = M_SLAVE_RESPONSE_MAX_DATA_BYTES + 4
-
-MASTER_STATUS_READY_TO_SEND_COMMAND = 1
-MASTER_STATUS_BUSY_SENDING_COMMAND = 2
-MASTER_STATUS_SENDING_COMMAND_SUCCEEDED = 3
-MASTER_STATUS_SENDING_COMMAND_FAILED = 4
-
-READ_FAILURE = 0
-READ_SUCCESS_NO_DATA = 1
-READ_SUCCESS_DATA = 2
-
+MAX_DATA_LENGTH = 255
 SEND_ATTEMPTS = 3
+COMMAND_TIMEOUT_PERIOD_S = 1
 
-"""
-From slave:
-if no response:
-SLAVE_RESPONSE_RECEIVED_COMMAND
-SLAVE_RESPONSE_RECEIVED_COMMAND
+COMMAND_HEADER_BYTE_1 = 0xAA
+COMMAND_HEADER_BYTE_2 = 0x55
 
-if resend:
-SLAVE_RESPONSE_RESEND_COMMAND
-SLAVE_RESPONSE_RESEND_COMMAND
+RESPONSE_HEADER_WITH_NO_DATA = 0xA9
+RESPONSE_HEADER_WITH_DATA = 0xAC
+RESPONSE_HEADER_RESEND_REQUEST = 0xB8
 
-if response:
-SLAVE_RESPONSE_RECEIVED_COMMAND_SENDING_DATA
-SLAVE_RESPONSE_RECEIVED_COMMAND_SENDING_DATA
-dataLength
-data where len(data)is dataLength
-checksum
 
-"""
+class CaminoError(Exception):
+    pass
+
+
+class CaminoResendError(Exception):
+    pass
 
 
 class SerialConnection:
     def __init__(self, port="/dev/ttyS0", baud=115200):
-        self.port = Serial(port=port, baudrate=baud, timeout=MASTER_COMMAND_TIMEOUT_PERIOD_S)
+        self.port = Serial(port=port, baudrate=baud, timeout=COMMAND_TIMEOUT_PERIOD_S)
         self.port.set_input_flow_control(True)
-        self.data_from_slave = []
-        self.data_length_from_slave = 0
-        self.checksum_from_slave = 0
-        self.status = MASTER_STATUS_READY_TO_SEND_COMMAND
 
     def read_byte(self):
-        b = self.port.read()
-        # print("read_byte", b)
-        return int.from_bytes(b, "big")
+        b = self.port.read(1)
+        if len(b) != 1:
+            raise CaminoError(f'Nothing sent when a response was expected.')
+        return b[0]
 
-    # called when we expect a packet
     def read_packet(self):
-        response_type_first = self.read_byte()
-        # make sure 2nd byte is the same
-        response_type_repeat = self.read_byte()
-        if response_type_repeat != response_type_first:
-            # uh oh. failure!
-            # print("non-matching response codes", response_type_first, response_type_repeat)
-            self.read_byte()
-            #return READ_FAILURE
+        header_byte_1 = self.read_byte()
+        header_byte_2 = self.read_byte()
+        if header_byte_1 != header_byte_2:
+            raise CaminoError(f'Mismatched header bytes: {header_byte_1} vs {header_byte_2}')
 
-        if response_type_repeat == SLAVE_RESPONSE_RECIEVED_COMMAND:
-            self.data_length_from_slave = 0
-            # done
-            # print("read success")
-            return READ_SUCCESS_NO_DATA
-        elif response_type_repeat == SLAVE_RESPONSE_RECIEVED_COMMAND_SENDING_DATA:
+        if header_byte_1 == RESPONSE_HEADER_WITH_NO_DATA:
+            return None
+        elif header_byte_1 == RESPONSE_HEADER_WITH_DATA:
             # slave is going to send some data with the response code
             data_length = self.read_byte()
-            if data_length >= 1 and data_length <= M_SLAVE_RESPONSE_MAX_DATA_BYTES:
-                self.data_length_from_slave = data_length
-                self.checksum = data_length
-                self.data_from_slave = []
-                while len(self.data_from_slave) < self.data_length_from_slave:
-                    next_byte = self.read_byte()
-                    self.checksum += next_byte
-                    self.data_from_slave.append(next_byte)
-                # check checksum
-                checksum = self.read_byte()
-                if self.checksum % 256 != checksum:
-                    # problem
-                    print("invalid checksum: {} vs {}".format(self.checksum % 256, checksum))
-                    return READ_FAILURE
-                else:
-                    # print("read success w/ data")
-                    return READ_SUCCESS_DATA
-            else:
-                print("invalid data length:", data_length)
-                return READ_FAILURE
-
-        elif response_type_repeat == SLAVE_RESPONSE_RESEND_COMMAND:
-            print("resend")
-            return READ_FAILURE
-
+            checksum = data_length
+            data = self.port.read(data_length)
+            for b in data:
+                checksum += b
+            checksum = checksum % 256
+            received_checksum = self.read_byte()
+            if received_checksum != checksum:
+                raise CaminoError(f'Invalid checksum: {checksum} vs {received_checksum}')
+            return data
+        elif header_byte_1 == RESPONSE_HEADER_RESEND_REQUEST:
+            raise CaminoResendError()
         else:
-            print("unexpected response type:", response_type_first)
-            return READ_FAILURE
+            raise CaminoError(f'Unexpected header value: {header_byte_1}')
 
-    def send_command_to_slave(self, slave_address, command, command_data, response):
-        if self.status == MASTER_STATUS_BUSY_SENDING_COMMAND:
-            raise RuntimeError("Cannot send command: BUSY")
-        self.status = MASTER_STATUS_BUSY_SENDING_COMMAND
+    def send_command(self, address, command, data):
+        if len(data) > MAX_DATA_LENGTH:
+            raise CaminoError(f'Data length ({len(data)}) larger than max ({MAX_DATA_LENGTH})')
 
-        if len(command_data) > M_MASTER_COMMAND_MAX_DATA_BYTES:
-            raise ValueError(
-                "Data length ({}) cannot be greater than {}".format(len(command_data), M_MASTER_COMMAND_MAX_DATA_BYTES))
+        packet = [COMMAND_HEADER_BYTE_1, COMMAND_HEADER_BYTE_2]
 
-        packet = []
-        self.packet_to_slave = packet
-        data_length = len(command_data)
         checksum = 0
-        packet.append(MASTER_COMMAND_HEADER_BYTE_1)
-        packet.append(MASTER_COMMAND_HEADER_BYTE_2)
-        packet.append(slave_address)
-        checksum += slave_address
+
+        packet.append(address)
+        checksum += address
+
         packet.append(command)
         checksum += command
+
+        data_length = len(data)
         packet.append(data_length)
         checksum += data_length
 
-        for byte in command_data:
+        for byte in data:
             packet.append(byte)
             checksum += byte
 
         packet.append(checksum % 256)
 
+        last_exception = None
         for attempt_number in range(SEND_ATTEMPTS):
-            self.port.write(bytes(self.packet_to_slave))
-            # print("writing: " + str(self.packet_to_slave))
-            status = self.read_packet()
-            if status == READ_SUCCESS_DATA:
-                self.status = MASTER_STATUS_SENDING_COMMAND_SUCCEEDED
-                return self.data_from_slave
-            elif status == READ_SUCCESS_NO_DATA:
-                self.status = MASTER_STATUS_SENDING_COMMAND_SUCCEEDED
-                return 1
-            else:
-                # prepare for next by clearing what's waiting on the line
-                # WARNING: this will pause until read timeout
-                print("read attempt", attempt_number, "failed")
-                self.port.read(size=M_SLAVE_RESPONSE_MAX_DATA_BYTES)
-
-        # after SEND_ATTEMPTS attempts
-        self.status = MASTER_STATUS_SENDING_COMMAND_FAILED
-        return -1
+            self.port.flushInput()
+            self.port.write(bytes(packet))
+            self.port.flushOutput()
+            time.sleep(0.05)
+            try:
+                response = self.read_packet()
+                return response
+            except (CaminoResendError, CaminoError) as e:
+                last_exception = e
+                print(f'Got error on attempt {attempt_number + 1}/{SEND_ATTEMPTS}: {e}')
+                # flushing
+                self.port.flush()
+        raise last_exception
 
 
 class Callable:
@@ -160,36 +103,43 @@ class Callable:
         self.command = command
         self.arduino = arduino
         if name is None:
-            self.name = self.arduino.get_nth_call(command, format_out=str)
+            self.name = self.arduino.get_nth_call(command, out=str)
         else:
             self.name = name
 
-    def call(self, data=None, format_out=int):
+    def call(self, *args, out=bytes):
         """
         format_out: int, str, bytes, None
         """
         serial = self.arduino.serial
-        to_send = data
-        if isinstance(data, int):
-            to_send = [data]
-        elif isinstance(data, str):
-            to_send = [ord(c) for c in data]
-        elif data is None:
-            to_send = []
+        data = []
+        for arg in args:
+            if isinstance(arg, int):
+                data.append(arg)
+            elif isinstance(arg, str):
+                if len(args) > 1:
+                    raise CaminoError(f'str must be only argument.')
+                data.extend([ord(c) for c in arg])
+            elif isinstance(arg, list):
+                if len(args) > 1:
+                    raise CaminoError(f'list must be only argument.')
+                data = list(arg)
+            else:
+                raise CaminoError(f'Unknown arg type: {type(arg)}')
 
-        # call
-        response = False if format_out is None else True
-        out = serial.send_command_to_slave(self.arduino.address, self.command, to_send, response)
+        response = serial.send_command(self.arduino.address, self.command, data)
 
-        if isinstance(out, int):
+        if response is None:
             return None
 
-        if format_out == int:
-            return out[0]
-        elif format_out == str:
-            return "".join(chr(val) for val in out)
-        else:
-            return out
+        if out == int:
+            return int.from_bytes(response, 'little')
+        elif out == str:
+            return "".join(chr(val) for val in response)
+        elif out == bytes:
+            return response
+
+        raise CaminoError(f'Unknown output format: {out}')
 
 
 class Arduino:
@@ -197,21 +147,20 @@ class Arduino:
         self.serial = serial
         self.address = address
         self.callables = {}
-        self.add_callable(Callable(self, 0, "num_calls"))
-        self.add_callable(Callable(self, 1, "get_nth_call"))
-        self.fetch_callables()
-        # test
+        self._add_callable(Callable(self, 0, "num_calls"))
+        self._add_callable(Callable(self, 1, "get_nth_call"))
+        self._fetch_callables()
         print("Arduino at {}...".format(address))
-        print(self.echo("Ready!", format_out=str))
+        print(self.echo("Ready!", out=str))
 
-    def add_callable(self, callable):
-        self.callables[callable.name] = callable
-        setattr(self, callable.name, callable.call)
-        print("Callable added: {}".format(callable.name))
+    def _add_callable(self, _callable):
+        self.callables[_callable.name] = _callable
+        setattr(self, _callable.name, _callable.call)
+        print("Callable added: {}".format(_callable.name))
 
-    def fetch_callables(self):
-        callable_count = self.num_calls()
+    def _fetch_callables(self):
+        callable_count = self.num_calls(out=int)
         print("There are", callable_count, "callables")
         for i in range(len(self.callables), callable_count):
-            self.add_callable(Callable(self, i))
+            self._add_callable(Callable(self, i))
 
