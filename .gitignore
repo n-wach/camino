@@ -4,3 +4,5 @@
 *.pyc
 *.zip
 
+/arduino/CaminoExample/Camino.cpp
+/arduino/CaminoExample/Camino.h
