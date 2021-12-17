@@ -4,18 +4,7 @@ void setup() {
   camino.begin(9600);
 }
 
-void loop() {
-
-}
-
-Handler sayHi;
-
-Callable callables[] = {
-  {"say_hi", sayHi},
-  {"add", add},
-};
-
-byte numberOfExternalCallables = sizeof(callables) / sizeof(Callable);
+void loop() {}
 
 // Example that returns the sum of some data (%256)
 void add(byte dataLength, byte *dataArray) {
@@ -30,3 +19,8 @@ void add(byte dataLength, byte *dataArray) {
 void sayHi(byte dataLength, byte *dataArray) {
   returns("I can say hi!");
 }
+
+BEGIN_CALLABLES {
+  {"say_hi", sayHi},
+  {"add", add},
+} END_CALLABLES;

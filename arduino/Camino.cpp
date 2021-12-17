@@ -124,10 +124,7 @@ Callable internalCallables[] = {
   {"analog_read", _analogRead},
   {"analog_write", _analogWrite},
 };
-
 #define NUM_INTERNAL_CALLABLES (sizeof(internalCallables) / sizeof(Callable))
-extern Callable callables[];
-extern byte numberOfExternalCallables;
 
 // Declare public camino object.
 Camino camino;

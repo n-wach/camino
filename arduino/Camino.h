@@ -55,6 +55,11 @@ typedef struct callable {
   Handler * call;
 } Callable;
 extern Callable callables[];
+extern byte numberOfExternalCallables;
+
+#define BEGIN_CALLABLES Callable callables[] =
+#define END_CALLABLES ; \
+byte numberOfExternalCallables = sizeof(callables) / sizeof(Callable);
 
 void returns(const char* string);
 void returns(byte dataLength, byte dataArray[]);
