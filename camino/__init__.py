@@ -143,7 +143,7 @@ class Callable:
 
 
 class Arduino:
-    def __init__(self, serial, address):
+    def __init__(self, serial, address=0):
         self.serial = serial
         self.address = address
         self.callables = {}
