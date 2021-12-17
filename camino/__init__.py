@@ -13,11 +13,11 @@ RESPONSE_HEADER_WITH_DATA = 0xAC
 RESPONSE_HEADER_RESEND_REQUEST = 0xB8
 
 
-class CaminoError(Exception):
+class CaminoException(Exception):
     pass
 
 
-class CaminoResendError(Exception):
+class CaminoResendException(CaminoException):
     pass
 
 
@@ -29,14 +29,14 @@ class SerialConnection:
     def read_byte(self):
         b = self.port.read(1)
         if len(b) != 1:
-            raise CaminoError(f'Nothing sent when a response was expected.')
+            raise CaminoException(f'Nothing sent when a response was expected.')
         return b[0]
 
     def read_packet(self):
         header_byte_1 = self.read_byte()
         header_byte_2 = self.read_byte()
         if header_byte_1 != header_byte_2:
-            raise CaminoError(f'Mismatched header bytes: {header_byte_1} vs {header_byte_2}')
+            raise CaminoException(f'Mismatched header bytes: {header_byte_1} vs {header_byte_2}')
 
         if header_byte_1 == RESPONSE_HEADER_WITH_NO_DATA:
             return None
@@ -50,16 +50,16 @@ class SerialConnection:
             checksum = checksum % 256
             received_checksum = self.read_byte()
             if received_checksum != checksum:
-                raise CaminoError(f'Invalid checksum: {checksum} vs {received_checksum}')
+                raise CaminoException(f'Invalid checksum: {checksum} vs {received_checksum}')
             return data
         elif header_byte_1 == RESPONSE_HEADER_RESEND_REQUEST:
-            raise CaminoResendError()
+            raise CaminoResendException()
         else:
-            raise CaminoError(f'Unexpected header value: {header_byte_1}')
+            raise CaminoException(f'Unexpected header value: {header_byte_1}')
 
     def send_command(self, address, command, data):
         if len(data) > MAX_DATA_LENGTH:
-            raise CaminoError(f'Data length ({len(data)}) larger than max ({MAX_DATA_LENGTH})')
+            raise CaminoException(f'Data length ({len(data)}) larger than max ({MAX_DATA_LENGTH})')
 
         packet = [COMMAND_HEADER_BYTE_1, COMMAND_HEADER_BYTE_2]
 
@@ -90,12 +90,12 @@ class SerialConnection:
             try:
                 response = self.read_packet()
                 return response
-            except (CaminoResendError, CaminoError) as e:
+            except CaminoException as e:
                 last_exception = e
                 print(f'Got error on attempt {attempt_number + 1}/{SEND_ATTEMPTS}: {e}')
                 # flushing
                 self.port.flush()
-        raise last_exception
+        raise CaminoException(f"All {SEND_ATTEMPTS} attempts to communicate with device failed.") from last_exception
 
 
 class Callable:
@@ -118,14 +118,14 @@ class Callable:
                 data.append(arg)
             elif isinstance(arg, str):
                 if len(args) > 1:
-                    raise CaminoError(f'str must be only argument.')
+                    raise CaminoException(f'str must be only argument.')
                 data.extend([ord(c) for c in arg])
             elif isinstance(arg, list):
                 if len(args) > 1:
-                    raise CaminoError(f'list must be only argument.')
+                    raise CaminoException(f'list must be only argument.')
                 data = list(arg)
             else:
-                raise CaminoError(f'Unknown arg type: {type(arg)}')
+                raise CaminoException(f'Unknown arg type: {type(arg)}')
 
         response = serial.send_command(self.arduino.address, self.command, data)
 
@@ -139,7 +139,7 @@ class Callable:
         elif out == bytes:
             return response
 
-        raise CaminoError(f'Unknown output format: {out}')
+        raise CaminoException(f'Unknown output format: {out}')
 
 
 class Arduino:
@@ -150,8 +150,6 @@ class Arduino:
         self._add_callable(Callable(self, 0, "num_calls"))
         self._add_callable(Callable(self, 1, "get_nth_call"))
         self._fetch_callables()
-        print("Arduino at {}...".format(address))
-        print(self.echo("Ready!", out=str))
 
     def _add_callable(self, _callable):
         self.callables[_callable.name] = _callable
