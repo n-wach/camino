@@ -11,8 +11,8 @@ functions can be defined.
 
 - [Installation](#Installation)
 - [Example](#Example)
-- [Adding Custom Functions](#Adding Custom Functions)
-- [Features and Limitations](#Features and Limitations)
+- [Adding Custom Functions](#Adding-Custom-Functions)
+- [Features and Limitations](#Features-and-Limitations)
 - [Options](#Options)
 - [Protocol](#Protocol)
 - [Contributing](#Contributing)
