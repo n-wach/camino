@@ -7,7 +7,7 @@ setuptools.setup(
     name="camino",
     version="1.0.1",
     author="Nathan Wachholz",
-    author_email="n-wach@github.com",
+    author_email="camino@nathanwachholz.com",
     description="A library and framework for controlling an Arduino from Python over Serial",
     long_description=long_description,
     long_description_content_type="text/markdown",
