@@ -6,3 +6,6 @@
 
 /arduino/CaminoExample/Camino.cpp
 /arduino/CaminoExample/Camino.h
+
+/dist
+/camino.egg-info
