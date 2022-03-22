@@ -29,14 +29,16 @@ class SerialConnection:
     def read_byte(self):
         b = self.port.read(1)
         if len(b) != 1:
-            raise CaminoException(f'Nothing sent when a response was expected.')
+            raise CaminoException(f"Nothing sent when a response was expected.")
         return b[0]
 
     def read_packet(self):
         header_byte_1 = self.read_byte()
         header_byte_2 = self.read_byte()
         if header_byte_1 != header_byte_2:
-            raise CaminoException(f'Mismatched header bytes: {header_byte_1} vs {header_byte_2}')
+            raise CaminoException(
+                f"Mismatched header bytes: {header_byte_1} vs {header_byte_2}"
+            )
 
         if header_byte_1 == RESPONSE_HEADER_WITH_NO_DATA:
             return None
@@ -50,16 +52,20 @@ class SerialConnection:
             checksum = checksum % 256
             received_checksum = self.read_byte()
             if received_checksum != checksum:
-                raise CaminoException(f'Invalid checksum: {checksum} vs {received_checksum}')
+                raise CaminoException(
+                    f"Invalid checksum: {checksum} vs {received_checksum}"
+                )
             return data
         elif header_byte_1 == RESPONSE_HEADER_RESEND_REQUEST:
             raise CaminoResendException()
         else:
-            raise CaminoException(f'Unexpected header value: {header_byte_1}')
+            raise CaminoException(f"Unexpected header value: {header_byte_1}")
 
     def send_command(self, address, command, data):
         if len(data) > MAX_DATA_LENGTH:
-            raise CaminoException(f'Data length ({len(data)}) larger than max ({MAX_DATA_LENGTH})')
+            raise CaminoException(
+                f"Data length ({len(data)}) larger than max ({MAX_DATA_LENGTH})"
+            )
 
         packet = [COMMAND_HEADER_BYTE_1, COMMAND_HEADER_BYTE_2]
 
@@ -92,10 +98,12 @@ class SerialConnection:
                 return response
             except CaminoException as e:
                 last_exception = e
-                print(f'Got error on attempt {attempt_number + 1}/{SEND_ATTEMPTS}: {e}')
+                print(f"Got error on attempt {attempt_number + 1}/{SEND_ATTEMPTS}: {e}")
                 # flushing
                 self.port.flush()
-        raise CaminoException(f"All {SEND_ATTEMPTS} attempts to communicate with device failed.") from last_exception
+        raise CaminoException(
+            f"All {SEND_ATTEMPTS} attempts to communicate with device failed."
+        ) from last_exception
 
 
 class Callable:
@@ -118,14 +126,14 @@ class Callable:
                 data.append(arg)
             elif isinstance(arg, str):
                 if len(args) > 1:
-                    raise CaminoException(f'str must be only argument.')
+                    raise CaminoException(f"str must be only argument.")
                 data.extend([ord(c) for c in arg])
             elif isinstance(arg, list):
                 if len(args) > 1:
-                    raise CaminoException(f'list must be only argument.')
+                    raise CaminoException(f"list must be only argument.")
                 data = list(arg)
             else:
-                raise CaminoException(f'Unknown arg type: {type(arg)}')
+                raise CaminoException(f"Unknown arg type: {type(arg)}")
 
         response = serial.send_command(self.arduino.address, self.command, data)
 
@@ -133,13 +141,13 @@ class Callable:
             return None
 
         if out == int:
-            return int.from_bytes(response, 'little')
+            return int.from_bytes(response, "little")
         elif out == str:
             return "".join(chr(val) for val in response)
         elif out == bytes:
             return response
 
-        raise CaminoException(f'Unknown output format: {out}')
+        raise CaminoException(f"Unknown output format: {out}")
 
 
 class Arduino:
@@ -161,4 +169,3 @@ class Arduino:
         print("There are", callable_count, "callables")
         for i in range(len(self.callables), callable_count):
             self._add_callable(Callable(self, i))
-
