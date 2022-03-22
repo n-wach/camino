@@ -4,8 +4,8 @@
 *.pyc
 *.zip
 
-/arduino/CaminoExample/Camino.cpp
-/arduino/CaminoExample/Camino.h
+/examples/CaminoExample/Camino.cpp
+/examples/CaminoExample/Camino.h
 
 /dist
 /camino.egg-info
