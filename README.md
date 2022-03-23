@@ -34,7 +34,7 @@ repository and run `pip install -e .` from inside the root directory.
 
 Camino is available through the Arduino IDE Library Manager:
 
-![`Tools > Manage Libraries`](https://i.imgur.com/CF5m6dr.png)
+![`Tools > Manage Libraries`](https://i.imgur.com/m0kg1r5.png)
 
 ![Search for Camino and click Install](https://i.imgur.com/XXY32i5.png)
 
