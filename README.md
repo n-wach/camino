@@ -32,16 +32,20 @@ repository and run `pip install -e .` from inside the root directory.
 
 ### Arduino
 
-Camino is distributed as part of the Arduino Library Manager. The version is shipped
-with the default options, and should work for most users. See the 
-[Features and Options section](#Options).
+Camino is available through the Arduino IDE Library Manager:
 
-Using the Arduino IDE, it is easy to install the library with default options:
+![`Tools > Manage Libraries`](https://i.imgur.com/CF5m6dr.png)
 
-To change any options, you'll need to manually include the library files. Download
-this repository. Then copy `src/Camino.cpp` and `src/Camino.h` into your sketch.
-If using the Arduino IDE, you can use the "Add File" option. To avoid conflicts,
-make sure you uninstall the library if you installed it via the IDE.
+![Search for Camino and click Install](https://i.imgur.com/XXY32i5.png)
+
+This version is shipped with the default options, and should work for most users.
+
+If you need to change options (see the [Features and Options section](#Options)), 
+you'll need to manually include the library. Download this repository. Then copy 
+`src/Camino.cpp` and `src/Camino.h` into your sketch. If using the Arduino IDE, 
+you can use the "Add File" option. To avoid conflicts, make sure you 
+[uninstall](https://support.arduino.cc/hc/en-us/articles/360016077340-How-do-I-delete-or-uninstall-a-library-from-the-IDE-) 
+the library if you installed it via the IDE.
 
 Installing manually also means you won't have the example sketches mentioned below.
 It's recommended to use the defaults options (and install normally) to get familiar 
