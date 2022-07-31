@@ -26,8 +26,13 @@
   #define RXENN             RXEN0
   #define TXENN             TXEN0
   #define RXCIEN            RXCIE0
-  #define USARTN_RX_vect    USART_RX_vect    // no number for some reason
-  #define USARTN_UDRE_vect  USART_UDRE_vect  // no number for some reason
+  #ifdef ARDUINO_AVR_UNO
+    #define USARTN_RX_vect    USART_RX_vect
+    #define USARTN_UDRE_vect  USART_UDRE_vect
+  #else
+    #define USARTN_RX_vect    USART0_RX_vect
+    #define USARTN_UDRE_vect  USART0_UDRE_vect
+  #endif
   #define UDRN              UDR0
   #define UDRIEN            UDRIE0
 #elif PORT == 1
