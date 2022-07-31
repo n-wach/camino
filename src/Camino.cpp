@@ -188,10 +188,8 @@ void Camino::respondWithNoData() {
 // to packetDataArray.
 //   dataLength: number of data bytes to send (at most MAX_DATA_LENGTH)
 void Camino::respondWithData(byte dataLength) {
-  int dataArrayToMasterIdx;
   int i;
   byte checksum;
-  byte c;
 
   packetArray[0] = RESPONSE_HEADER_WITH_DATA;
   packetArray[1] = RESPONSE_HEADER_WITH_DATA;
