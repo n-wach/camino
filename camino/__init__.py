@@ -24,7 +24,6 @@ class CaminoResendException(CaminoException):
 class SerialConnection:
     def __init__(self, port="/dev/ttyS0", baud=115200):
         self.port = Serial(port=port, baudrate=baud, timeout=COMMAND_TIMEOUT_PERIOD_S)
-        self.port.set_input_flow_control(True)
 
     def read_byte(self):
         b = self.port.read(1)
