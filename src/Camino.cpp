@@ -394,7 +394,7 @@ void _analogWrite(byte dataLength, byte *dataArray) {
 }
 
 void _analogRead(byte dataLength, byte *dataArray) {
-  int value = digitalRead(dataArray[0]);
+  int value = analogRead(dataArray[0]);
   byte arr[2] = {(byte) (value % 256), (byte) value};
   returns(2, arr);
 }
