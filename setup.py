@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="camino",
-    version="1.3.0",
+    version="1.3.1",
     author="Nathan Wachholz",
     author_email="camino@nathanwachholz.com",
     description="A library for controlling an Arduino from Python over Serial",
