@@ -15,9 +15,9 @@
 #define PORT 0
 
 // The maximum length of the data section for packets. Value must
-// be at least 16 and at most 255. Making it smaller reduces the
+// be at least 16 and at most 250. Making it smaller reduces the
 // memory footprint of Camino.
-#define MAX_DATA_LENGTH 255
+#define MAX_DATA_LENGTH 250
 
 // Command timeout in milliseconds. When a new byte in a packet is received,
 // if this period has elapsed since the start of the packet, the earlier
