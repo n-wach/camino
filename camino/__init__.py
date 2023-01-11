@@ -1,5 +1,4 @@
 from serial import Serial
-import time
 
 MAX_DATA_LENGTH = 255
 SEND_ATTEMPTS = 3
@@ -91,7 +90,6 @@ class SerialConnection:
             self.port.flushInput()
             self.port.write(bytes(packet))
             self.port.flushOutput()
-            time.sleep(0.05)
             try:
                 response = self.read_packet()
                 return response
