@@ -64,5 +64,8 @@ byte numberOfExternalCallables = sizeof(callables) / sizeof(Callable);
 void returns(const char* string);
 void returns(byte dataLength, byte dataArray[]);
 void returns(byte v);
+void returns(short v);
+void returns(int v);
+void returns(long v);
 
 #endif

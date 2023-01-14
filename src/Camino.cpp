@@ -361,7 +361,7 @@ ISR(USARTN_UDRE_vect) {
 }
 
 void numberOfCallables(byte dataLength, byte *dataArray) {
-  returns(NUM_INTERNAL_CALLABLES + numberOfExternalCallables);
+  returns((byte) (NUM_INTERNAL_CALLABLES + numberOfExternalCallables));
 }
 
 void getNthCallable(byte dataLength, byte *dataArray) {
@@ -395,8 +395,7 @@ void _analogWrite(byte dataLength, byte *dataArray) {
 
 void _analogRead(byte dataLength, byte *dataArray) {
   int value = analogRead(dataArray[0]);
-  byte arr[2] = {(byte) (value % 256), (byte) value};
-  returns(2, arr);
+  returns((short) value);
 }
 
 void returns(const char* string) {
@@ -415,8 +414,16 @@ void returns(byte dataLength, byte *dataArray) {
   responseHasData = 1;
 }
 
-void returns(byte v) {
-  packetDataLength = 1;
-  responseDataArray[0] = v;
-  responseHasData = 1;
+#define returnsType(type) void returns(type v) {\
+  packetDataLength = sizeof(type);\
+  for(byte i = 0; i < packetDataLength; i++) {\
+    responseDataArray[i] = (byte) (v % 256);\
+    v = v / 256;\
+  }\
+  responseHasData = 1;\
 }
+
+returnsType(byte);
+returnsType(short);
+returnsType(int);
+returnsType(long);

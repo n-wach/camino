@@ -174,11 +174,11 @@ To allow all callables to have the same type, data is returned using a number
 of helper functions, rather than `return` statements.
 
 To return data to Python, use one of the available `returns(...)` methods. 
-At the moment, there are 3 possible arguments for `returns(...)`:
+At the moment, there are a few possible arguments for `returns(...)`:
 
 ```C
 void returns(const char* string); // returns("hello");
-void returns(byte v); // returns(1);
+void returns(byte|short|int|long v); // returns(1);
 void returns(byte dataLength, data *dataArray); // returns(dataLength, data); as in echo
 ```
 
