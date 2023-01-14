@@ -1,11 +1,16 @@
 import setuptools
+import re
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+with open("library.properties", "r") as fh:
+    content = fh.read()
+    version = re.search(r"version=([\d.]*)", content).group(1)
+
 setuptools.setup(
     name="camino",
-    version="1.3.1",
+    version=version,
     author="Nathan Wachholz",
     author_email="camino@nathanwachholz.com",
     description="A library for controlling an Arduino from Python over Serial",
