@@ -170,17 +170,17 @@ BEGIN_CALLABLES {
 
 ### Returning Data
 
-To allow all callables to have the same type, data is returned using a number
-of helper functions, rather than `return` statements.
+To allow all callables to have the same type, data is returned using one 
+of the available `returns(...)` methods, rather than `return` statements.
 
-To return data to Python, use one of the available `returns(...)` methods. 
-At the moment, there are a few possible arguments for `returns(...)`:
+To return a scalar (`byte`, `char`, `unsigned short`, `short`, `unsigned int`,
+`int`, `unsigned long`, or `long`), you can pass it directly. For instance `returns((int) -1067);`.
+Be sure that your signedness in Python matches what you send in C.
 
-```C
-void returns(const char* string); // returns("hello");
-void returns(byte|short|int|long v); // returns(1);
-void returns(byte dataLength, data *dataArray); // returns(dataLength, data); as in echo
-```
+To return strings, you can pass a `const char*`, like `returns("hello");`.
+
+For anything else, you can pass a length and `byte *`. For instance `returns(dataLength, data);`,
+which is how the builtin `echo` callable works.
 
 You do not need to call `returns(...)`.  If a function does not call `returns(...)`,
 the Arduino simply responds with no data (`None` in Python).  Calling `returns(...)` 
@@ -225,7 +225,8 @@ defaults to `bytes`. You can have Camino automatically convert the `bytes` to
 another type by passing the `out` keyword argument. The options are:
 
  * `bytes` - raw `bytes` returned by the Callable
- * `int` - convert the bytes to a single Python `int` using little endian.
+ * `int` - convert the bytes to a single Python `int` using little endian. You should also specify if
+    the number is signed by passing `signed=True` (default) or `signed=False`.
  * `str` - convert the bytes to a Python `str`
 
 ## Features and Limitations

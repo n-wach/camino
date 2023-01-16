@@ -112,9 +112,10 @@ class Callable:
         else:
             self.name = name
 
-    def call(self, *args, out=bytes):
+    def call(self, *args, out=bytes, signed=True):
         """
-        format_out: int, str, bytes, None
+        out: int, str, or bytes
+        signed: if out is int, interpret response as a signed int
         """
         serial = self.arduino.serial
         data = []
@@ -138,7 +139,7 @@ class Callable:
             return None
 
         if out == int:
-            return int.from_bytes(response, "little")
+            return int.from_bytes(response, "little", signed=signed)
         elif out == str:
             return "".join(chr(val) for val in response)
         elif out == bytes:
