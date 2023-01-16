@@ -417,13 +417,16 @@ void returns(byte dataLength, byte *dataArray) {
 #define returnsType(type) void returns(type v) {\
   packetDataLength = sizeof(type);\
   for(byte i = 0; i < packetDataLength; i++) {\
-    responseDataArray[i] = (byte) (v % 256);\
-    v = v / 256;\
+    responseDataArray[i] = (byte) ((v & (0xff << (i * 8)) >> i * 8);\
   }\
   responseHasData = 1;\
 }
 
 returnsType(byte);
+returnsType(char);
+returnsType(unsigned short);
 returnsType(short);
+returnsType(unsigned int);
 returnsType(int);
+returnsType(unsigned long);
 returnsType(long);
