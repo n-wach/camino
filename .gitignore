@@ -9,3 +9,4 @@
 
 /dist
 /camino.egg-info
+.eggs/

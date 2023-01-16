@@ -417,7 +417,7 @@ void returns(byte dataLength, byte *dataArray) {
 #define returnsType(type) void returns(type v) {\
   packetDataLength = sizeof(type);\
   for(byte i = 0; i < packetDataLength; i++) {\
-    responseDataArray[i] = (byte) ((v & (0xff << (i * 8)) >> i * 8);\
+    responseDataArray[i] = (byte) ((v & ((type) 0xff << (i * 8))) >> (i * 8));\
   }\
   responseHasData = 1;\
 }
