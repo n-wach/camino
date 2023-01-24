@@ -1,7 +1,7 @@
 # Camino
 
 Camino enables blazing fast, non-intrusive communication over a serial connection between 
-Python and up to 256 Arduino Megas. It provides a simple way to call functions on a remote
+Python and up to 256 Arduinos. It provides a simple way to call functions on a remote
 Arduino, sending and receiving up to 255 bytes of data. Besides the built in functions 
 (`digital_write`, `pin_mode`, `analog_read`, etc.), approximately 250 user-defined 
 functions can be defined.
