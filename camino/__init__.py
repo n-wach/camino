@@ -162,10 +162,10 @@ class Arduino:
     def _add_callable(self, _callable):
         self.callables[_callable.name] = _callable
         setattr(self, _callable.name, _callable.call)
-        logger.debug("[arduino {}] Callable added: {}".format(self.address, _callable.name))
+        logger.debug(f"[arduino {self.address}] Callable added: {_callable.name}")
 
     def _fetch_callables(self):
         callable_count = self.num_calls(out=int)
-        logger.info("[arduino {}] There are {} callables".format(self.address, callable_count))
+        logger.info(f"[arduino {self.address}] There are {callable_count} callables")
         for i in range(len(self.callables), callable_count):
             self._add_callable(Callable(self, i))
