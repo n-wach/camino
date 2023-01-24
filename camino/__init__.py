@@ -1,4 +1,6 @@
 from serial import Serial
+import logging
+logger = logging.getLogger(__name__)
 
 MAX_DATA_LENGTH = 250
 SEND_ATTEMPTS = 3
@@ -95,11 +97,11 @@ class SerialConnection:
                 return response
             except CaminoException as e:
                 last_exception = e
-                print(f"Got error on attempt {attempt_number + 1}/{SEND_ATTEMPTS}: {e}")
+                logger.warning(f"Got error on communication attempt {attempt_number + 1}/{SEND_ATTEMPTS}: {e}")
                 # flushing
                 self.port.flush()
         raise CaminoException(
-            f"All {SEND_ATTEMPTS} attempts to communicate with device failed."
+            f"All {SEND_ATTEMPTS} consecutive attempts to communicate with device failed."
         ) from last_exception
 
 
@@ -160,10 +162,10 @@ class Arduino:
     def _add_callable(self, _callable):
         self.callables[_callable.name] = _callable
         setattr(self, _callable.name, _callable.call)
-        print("Callable added: {}".format(_callable.name))
+        logger.debug("[arduino {}] Callable added: {}".format(self.address, _callable.name))
 
     def _fetch_callables(self):
         callable_count = self.num_calls(out=int)
-        print("There are", callable_count, "callables")
+        logger.info("[arduino {}] There are {} callables".format(self.address, callable_count))
         for i in range(len(self.callables), callable_count):
             self._add_callable(Callable(self, i))
