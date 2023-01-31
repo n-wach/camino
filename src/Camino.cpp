@@ -390,7 +390,7 @@ void _digitalRead(byte dataLength, byte *dataArray) {
 }
 
 void _analogWrite(byte dataLength, byte *dataArray) {
-  analogWrite(dataArray[0], dataArray[1]*256 + dataArray[2]);
+  analogWrite(dataArray[0], dataArray[1]);
 }
 
 void _analogRead(byte dataLength, byte *dataArray) {
