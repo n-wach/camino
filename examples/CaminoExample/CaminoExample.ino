@@ -26,7 +26,7 @@
 #include "Camino.h"
 
 void setup() {
-  camino.begin(9600);
+  camino.begin(115200);
 }
 
 void loop() {}
