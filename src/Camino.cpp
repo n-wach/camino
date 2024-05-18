@@ -1,5 +1,6 @@
 #include "wiring_private.h"
 #include "Camino.h"
+#include "options.h"
 
 // Configure register and interrupt names by port
 #if PORT == -1
