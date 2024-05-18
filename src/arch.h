@@ -1,68 +1,126 @@
 #ifndef Camino_arch_h
 #define Camino_arch_h
 
-// Configure register and interrupt names based on architecture and PORT.
-#if PORT == -1
-  #define UCSRNA            UCSRA
-  #define UCSRNB            UCSRB
-  #define UCSRNC            UCSRC
-  #define U2XN              U2X
-  #define UBRRNH            UBRRH
-  #define UBRRNL            UBRRL
-  #define RXENN             RXEN
-  #define TXENN             TXEN
-  #define RXCIEN            RXCIE
-  #define USARTN_RX_vect    USART_RX_vect
-  #define USARTN_UDRE_vect  USART_UDRE_vect
-  #define UDRN              UDR
-  #define UDRIEN            UDRIE
-#elif PORT == 0
-  #define UCSRNA            UCSR0A
-  #define UCSRNB            UCSR0B
-  #define UCSRNC            UCSR0C
-  #define U2XN              U2X0
-  #define UBRRNH            UBRR0H
-  #define UBRRNL            UBRR0L
-  #define RXENN             RXEN0
-  #define TXENN             TXEN0
-  #define RXCIEN            RXCIE0
-  #ifdef ARDUINO_AVR_UNO
-    #define USARTN_RX_vect    USART_RX_vect
-    #define USARTN_UDRE_vect  USART_UDRE_vect
+#include "wiring_private.h"
+
+// Architecture flags listed in packages/arduino/hardware/avr/1.8.6/boards.txt
+// Supported by Camino:
+//  #define ARDUINO_AVR_MEGA | ARDUINO_AVR_MEGA2560 | ARDUINO_AVR_ADK
+//    PORT = 0, 1, 2
+//  #define ARDUINO_AVR_UNO
+//    PORT = 0
+// Not officially supported (file a PR!):
+//  #define ARDUINO_AVR_ADK
+//  #define ARDUINO_AVR_BT
+//  #define ARDUINO_AVR_CIRCUITPLAY
+//  #define ARDUINO_AVR_DUEMILANOVE
+//  #define ARDUINO_AVR_ESPLORA
+//  #define ARDUINO_AVR_ETHERNET
+//  #define ARDUINO_AVR_FIO
+//  #define ARDUINO_AVR_GEMMA
+//  #define ARDUINO_AVR_INDUSTRIAL101
+//  #define ARDUINO_AVR_LEONARDO
+//  #define ARDUINO_AVR_LEONARDO_ETH
+//  #define ARDUINO_AVR_LILYPAD
+//  #define ARDUINO_AVR_LILYPAD_USB
+//  #define ARDUINO_AVR_LININO_ONE
+//  #define ARDUINO_AVR_MICRO
+//  #define ARDUINO_AVR_MINI
+//  #define ARDUINO_AVR_NANO
+//  #define ARDUINO_AVR_NG
+//  #define ARDUINO_AVR_PRO
+//  #define ARDUINO_AVR_ROBOT_CONTROL
+//  #define ARDUINO_AVR_ROBOT_MOTOR
+//  #define ARDUINO_AVR_UNO_WIFI_DEV_ED
+//  #define ARDUINO_AVR_YUN
+//  #define ARDUINO_AVR_YUNMINI
+
+#if defined(ARDUINO_AVR_UNO)
+  #define Camino_InitPort(baudRate) do {\
+    /* configure baudrate registers of UART */ \
+    uint16_t clockRate = (uint16_t) ((F_CPU / (8L * baudRate)) - 1L); \
+    UBRR0H = clockRate >> 8; \
+    UBRR0L = clockRate & 0xff; \
+    sbi(UCSR0A, U2X0);   /* enable double rate (2X flag) */ \
+    sbi(UCSR0B, RXEN0);  /* enable RX interrupt */ \
+    sbi(UCSR0B, TXEN0);  /* enable TX interrupt */ \
+    sbi(UCSR0B, RXCIE0); /* enable serial receive complete interrupt */ \
+    UCSR0C = 0x06;       /* set 8 bit, no parity, 1 stop */ \
+  } while(0)
+  #define Camino_SendByte(v) do { \
+    UDR0 = v; \
+  } while(0)
+  #define Camino_EnableByteSentISR() sbi(UCSR0B, UDRIE0)
+  #define Camino_DisableByteSentISR() cbi(UCSR0B, UDRIE0)
+  #define Camino_ReadByte() (UDR0)
+  #define Camino_ByteReadable_vect USART_RX_vect
+  #define Camino_ByteSent_vect USART_UDRE_vect
+#elif defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560) || defined(ARDUINO_AVR_ADK)
+  #if PORT == 0
+    #define Camino_InitPort(baudRate) do {\
+      /* configure baudrate registers of UART */ \
+      uint16_t clockRate = (uint16_t) ((F_CPU / (8L * baudRate)) - 1L); \
+      UBRR0H = clockRate >> 8; \
+      UBRR0L = clockRate & 0xff; \
+      sbi(UCSR0A, U2X0);   /* enable double rate (2X flag) */ \
+      sbi(UCSR0B, RXEN0);  /* enable RX interrupt */ \
+      sbi(UCSR0B, TXEN0);  /* enable TX interrupt */ \
+      sbi(UCSR0B, RXCIE0); /* enable serial receive complete interrupt */ \
+      UCSR0C = 0x06;       /* set 8 bit, no parity, 1 stop */ \
+    } while(0)
+    #define Camino_SendByte(v) do { \
+      UDR0 = v; \
+    } while(0)
+    #define Camino_EnableByteSentISR() sbi(UCSR0B, UDRIE0)
+    #define Camino_DisableByteSentISR() cbi(UCSR0B, UDRIE0)
+    #define Camino_ReadByte() (UDR0)
+    #define Camino_ByteReadable_vect USART0_RX_vect
+    #define Camino_ByteSent_vect USART0_UDRE_vect
+  #elif PORT == 1
+    #define Camino_InitPort(baudRate) do {\
+      /* configure baudrate registers of UART */ \
+      uint16_t clockRate = (uint16_t) ((F_CPU / (8L * baudRate)) - 1L); \
+      UBRR1H = clockRate >> 8; \
+      UBRR1L = clockRate & 0xff; \
+      sbi(UCSR1A, U2X1);   /* enable double rate (2X flag) */ \
+      sbi(UCSR1B, RXEN1);  /* enable RX interrupt */ \
+      sbi(UCSR1B, TXEN1);  /* enable TX interrupt */ \
+      sbi(UCSR1B, RXCIE1); /* enable serial receive complete interrupt */ \
+      UCSR1C = 0x06;       /* set 8 bit, no parity, 1 stop */ \
+    } while(0)
+    #define Camino_SendByte(v) do { \
+      UDR0 = v; \
+    } while(0)
+    #define Camino_EnableByteSentISR() sbi(UCSR1B, UDRIE1)
+    #define Camino_DisableByteSentISR() cbi(UCSR1B, UDRIE1)
+    #define Camino_ReadByte() (UDR1)
+    #define Camino_ByteReadable_vect USART1_RX_vect
+    #define Camino_ByteSent_vect USART1_UDRE_vect
+  #elif PORT == 2
+    #define Camino_InitPort(baudRate) do {\
+      /* configure baudrate registers of UART */ \
+      uint16_t clockRate = (uint16_t) ((F_CPU / (8L * baudRate)) - 1L); \
+      UBRR2H = clockRate >> 8; \
+      UBRR2L = clockRate & 0xff; \
+      sbi(UCSR2A, U2X2);   /* enable double rate (2X flag) */ \
+      sbi(UCSR2B, RXEN2);  /* enable RX interrupt */ \
+      sbi(UCSR2B, TXEN2);  /* enable TX interrupt */ \
+      sbi(UCSR2B, RXCIE2); /* enable serial receive complete interrupt */ \
+      UCSR2C = 0x06;       /* set 8 bit, no parity, 1 stop */ \
+    } while(0)
+    #define Camino_SendByte(v) do { \
+      UDR0 = v; \
+    } while(0)
+    #define Camino_EnableByteSentISR() sbi(UCSR2B, UDRIE2)
+    #define Camino_DisableByteSentISR() cbi(UCSR2B, UDRIE2)
+    #define Camino_ReadByte() (UDR2)
+    #define Camino_ByteReadable_vect USART2_RX_vect
+    #define Camino_ByteSent_vect USART2_UDRE_vect
   #else
-    #define USARTN_RX_vect    USART0_RX_vect
-    #define USARTN_UDRE_vect  USART0_UDRE_vect
+    #error "Unsupported PORT for ARDUINO_AVR_MEGA"
   #endif
-  #define UDRN              UDR0
-  #define UDRIEN            UDRIE0
-#elif PORT == 1
-  #define UCSRNA            UCSR1A
-  #define UCSRNB            UCSR1B
-  #define UCSRNC            UCSR1C
-  #define U2XN              U2X1
-  #define UBRRNH            UBRR1H
-  #define UBRRNL            UBRR1L
-  #define RXENN             RXEN1
-  #define TXENN             TXEN1
-  #define RXCIEN            RXCIE1
-  #define USARTN_RX_vect    USART1_RX_vect
-  #define USARTN_UDRE_vect  USART1_UDRE_vect
-  #define UDRN              UDR1
-  #define UDRIEN            UDRIE1
-#elif PORT == 2
-  #define UCSRNA            UCSR2A
-  #define UCSRNB            UCSR2B
-  #define UCSRNC            UCSR2C
-  #define U2XN              U2X2
-  #define UBRRNH            UBRR2H
-  #define UBRRNL            UBRR2L
-  #define RXENN             RXEN2
-  #define TXENN             TXEN2
-  #define RXCIEN            RXCIE2
-  #define USARTN_RX_vect    USART2_RX_vect
-  #define USARTN_UDRE_vect  USART2_UDRE_vect
-  #define UDRN              UDR2
-  #define UDRIEN            UDRIE2
+#else
+  # error "Unsupported board. See arch.h to add support"
 #endif
 
 #endif

@@ -1,5 +1,3 @@
-#include "wiring_private.h"
-
 #include "options.h"
 #include "arch.h"
 #include "Camino.h"
@@ -83,29 +81,14 @@ void Camino::begin(long baudRate) {
 //   baudRate: baud rate (ie 9600)
 //   address: this arduino's address (0 - 255)
 void Camino::begin(long baudRate, byte address) {
-  uint16_t clockRate;
-
   // remember the address we should respond too
   thisAddress = address;
 
   // init transmission hooks
   initTransmissions();
 
-  // configure baudrate registers of UART
-  clockRate = (uint16_t) ((F_CPU / (8L * baudRate)) - 1L);
-  UCSRNA = 1 << U2XN; // enable double rate (2X flag)
-  UBRRNH = clockRate >> 8;
-  UBRRNL = clockRate & 0xff;
-
-  // set 8 bit, no parity, 1 stop
-  UCSRNC = 0x06;
-
-  // enable RX and TX interrupts
-  sbi(UCSRNB, RXENN);
-  sbi(UCSRNB, TXENN);
-
-  // enable serial receive complete interrupt
-  sbi(UCSRNB, RXCIEN);
+  // configure UART
+  Camino_InitPort(baudRate);
 
   // initialize state
   receiveState = WAITING_FOR_HEADER_BYTE_1;
@@ -157,11 +140,11 @@ void Camino::sendResponsePacket() {
 
   // transmit the first byte in the packet
   packetTransmitIdx = 0;
-  UDRN = packetArray[packetTransmitIdx];
+  Camino_SendByte(packetArray[packetTransmitIdx]);
   packetTransmitIdx++;
 
   // enable the interrupt that triggers when the transmit buffer is empty
-  sbi(UCSRNB, UDRIEN);
+  Camino_EnableByteSentISR();
 }
 
 // Dispatch correct handler, and respond according to handler return
@@ -189,7 +172,7 @@ void Camino::processCommand(byte command, byte dataLength){
 }
 
 // Interrupt service routine for characters received from the serial port
-ISR(USARTN_RX_vect) {
+ISR(Camino_ByteReadable_vect) {
   byte c;
 
   // check for a timeout receiving data
@@ -198,7 +181,7 @@ ISR(USARTN_RX_vect) {
   }
 
   // read the byte from the USART
-  c = UDRN;
+  c = Camino_ReadByte();
 
   // select the operation based on the current state
   switch(receiveState) {
@@ -280,19 +263,20 @@ ISR(USARTN_RX_vect) {
 }
 
 // Interrupt service routine triggered when the transmit buffer is empty
-ISR(USARTN_UDRE_vect) {
+ISR(Camino_ByteSent_vect) {
   // check if there is any more data in the packet to send
   if (packetTransmitIdx >= packetLength) {
     // nothing left to transmit
     // disable the interrupt that triggers when the transmit buffer is empty
-    cbi(UCSRNB, UDRIEN);
+    Camino_DisableByteSentISR();
+
     // call hook
     endTransmission();
     return;
   }
 
   // transmit the next byte in the packet
-  UDRN = packetArray[packetTransmitIdx];
+  Camino_SendByte(packetArray[packetTransmitIdx]);
   packetTransmitIdx++;
 }
 
