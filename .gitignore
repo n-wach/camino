@@ -5,8 +5,8 @@
 *.pyc
 *.zip
 
-/examples/CaminoExample/Camino.cpp
-/examples/CaminoExample/Camino.h
+/examples/CaminoExample/*
+!/examples/CaminoExample/*.ino
 
 /dist
 /camino.egg-info

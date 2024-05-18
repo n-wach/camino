@@ -20,7 +20,7 @@ extern Camino camino;
 
 typedef void Handler(byte dataLength, byte dataArray[]);
 typedef struct callable {
-  const char * shortName; //must be <= 16 characters
+  const char * shortName; //must be <= MAX_DATA_LENGTH characters
   Handler * call;
 } Callable;
 extern Callable callables[];
