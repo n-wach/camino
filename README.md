@@ -69,9 +69,9 @@ void setup() {
 
 void loop() {}
 
-// Example that returns the sum of some data (%256)
+// Example that returns the sum of some data
 void add(byte dataLength, byte *dataArray) {
-  byte sum = 0;
+  int sum = 0;
   for(byte i = 0; i < dataLength; i++){
     sum += dataArray[i];
   }
