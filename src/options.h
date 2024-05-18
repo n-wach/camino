@@ -5,9 +5,8 @@
 // #define any of these options before including Camino.h, the default value
 // will be overridden.
 
-// The UART port used by Camino. Can be -1, 0, 1, 2. We default to UART0, which
-// is usually the USB port. This means you can't use Serial in your sketch. See
-// Camino.cpp for details.
+// The UART port used by Camino. See arch.h for the supported values for each
+// architecture.
 #if !defined(PORT)
   #define PORT 0
 #endif
