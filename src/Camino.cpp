@@ -1,60 +1,63 @@
-#include "wiring_private.h"
-#include "Camino4809.h"
+#define IN_CAMINO_LIBRARY
+#include "Camino.h"
+//#include "options.h"
+#undef IN_CAMINO_LIBRARY
 
 
-// Constants for the command packet that the master sends to the slave
-const byte COMMAND_HEADER_BYTE_1 = 0xAA;
-const byte COMMAND_HEADER_BYTE_2 = 0x55;
+void __attribute__ ((weak)) initTransmissions() {};
+void __attribute__ ((weak)) beginTransmission() {};
+void __attribute__ ((weak)) endTransmission() {};
 
-// Constants for the response packet that the slave sends to the master
-const byte RESPONSE_HEADER_WITH_NO_DATA = 0xA9;
-const byte RESPONSE_HEADER_WITH_DATA = 0xAC;
-const byte RESPONSE_HEADER_RESEND_REQUEST = 0xB8;
 
-// Values for slaveState
-const byte STATE_WAITING_FOR_HEADER_BYTE_1 = 0;
-const byte STATE_WAITING_FOR_HEADER_BYTE_2 = 1;
-const byte STATE_WAITING_FOR_SLAVE_ADDRESS = 2;
-const byte STATE_WAITING_FOR_COMMAND_BYTE = 3;
-const byte STATE_WAITING_FOR_DATA_LENGTH_BYTE = 4;
-const byte STATE_WAITING_FOR_DATA_BYTES = 5;
-const byte STATE_WAITING_FOR_CHECKSUM_BYTE = 6;
+// Implementation. This was originally in a separate .cpp file. It's been
+// moved in order to allow users to #define options without modifying any
+// files.
 
-// Variables global to this module
-byte thisAddress;
-byte slaveState;
-// We don't use packetDataLength == 0, so there remains the distinction of
-// commands returning no data vs returning a data array that's empty.
-byte responseHasData;
+// Constants for the command packet that python sends to the arduino
+#define COMMAND_HEADER_BYTE_1 0xAA
+#define COMMAND_HEADER_BYTE_2 0x55
 
-// This buffer stores the *entire* packet for a response. Its size is at most
-// 2 bytes for header, 1 byte for data length, MAX_DATA_LENGTH bytes for data,
-// and 1 byte for checksum.
-byte packetArray[2 + 1 + MAX_DATA_LENGTH + 1];
-// When composing a response with data, we write directly to the response packet.
-// Data array begins at offset 3.
-byte *responseDataArray = &packetArray[3];
+// Constants for the response packet that the arduino sends to python
+#define RESPONSE_HEADER_WITH_NO_DATA    0xA9
+#define RESPONSE_HEADER_WITH_DATA       0xAC
+#define RESPONSE_HEADER_RESEND_REQUEST  0xB8
 
-// Variables per packet
+// Values for receiveState
+#define WAITING_FOR_HEADER_BYTE_1     0
+#define WAITING_FOR_HEADER_BYTE_2     1
+#define WAITING_FOR_ADDRESS           2
+#define WAITING_FOR_COMMAND_BYTE      3
+#define WAITING_FOR_DATA_LENGTH_BYTE  4
+#define WAITING_FOR_DATA_BYTES        5
+#define WAITING_FOR_CHECKSUM_BYTE     6
+
+// State when receiving/sending a packet.
+byte receiveState;
 unsigned long packetStartTimeMs;
 byte packetAddress;
 byte packetCommand;
-byte packetDataArray[MAX_DATA_LENGTH];
+//byte packetDataArray[MAX_DATA_LENGTH];
+extern byte packetDataArray[];
 byte packetDataLength;
 byte packetLength;
 byte packetChecksum;
 byte packetTransmitIdx;
 byte packetReceiveIdx;
 
-// Declare internal callables
-Handler numberOfCallables;
-Handler getNthCallable;
-Handler echo;
-Handler _pinMode;
-Handler _digitalWrite;
-Handler _digitalRead;
-Handler _analogWrite;
-Handler _analogRead;
+// Arduino address. Only messages with this address will be processed.
+byte thisAddress;
+// We use a variable instead of packetDataLength == 0. We want there to be a
+// distinction between returning no data and return an empty data array.
+byte responseHasData;
+// This buffer stores the *entire* packet for a response. Its size is at most
+// 2 bytes for header, 1 byte for data length, MAX_DATA_LENGTH bytes for data,
+// and 1 byte for checksum.
+//byte packetArray[2 + 1 + MAX_DATA_LENGTH + 1];
+extern byte packetArray[];
+// When composing a response with data, we write directly to the response packet.
+// Data array begins at offset 3.
+byte *responseDataArray = &packetArray[3];
+
 
 Callable internalCallables[] = {
   {"num_calls", numberOfCallables},
@@ -66,13 +69,11 @@ Callable internalCallables[] = {
   {"analog_read", _analogRead},
   {"analog_write", _analogWrite},
 };
-#define NUM_INTERNAL_CALLABLES (sizeof(internalCallables) / sizeof(Callable))
 
-// Declare public camino object.
+
+
 Camino camino;
-Camino::Camino()
-{
-}
+Camino::Camino(){}
 
 // Begin listening to serial port, with default address 0.
 //   baudRate: baud rate (ie 9600)
@@ -82,55 +83,20 @@ void Camino::begin(long baudRate) {
 
 // Begin listening to serial port.
 //   baudRate: baud rate (ie 9600)
-//   address: this slave's address (0 - 255)
+//   address: this arduino's address (0 - 255)
 void Camino::begin(long baudRate, byte address) {
-
-  // remember the address this slave should respond too
+  // remember the address we should respond too
   thisAddress = address;
 
   // init transmission hooks
   initTransmissions();
 
-  //Make sure global interrupts are disabled during initialization
-  uint8_t oldSREG = SREG;
-  cli();
-
-  // Setup port mux
-  PORTMUX.USARTROUTEA |= PORTMUX_USART3_ALT1_gc;
-  
-  // disable double rate (2X flag)
-  USART3.CTRLB &= ~(USART_RXMODE_CLK2X_gc);
-
-  // configure baudrate registers of UART
-  int32_t baud_setting = (((8 * F_CPU) / baudRate) + 1) / 2;
-  int8_t sigrow_val = SIGROW.OSC16ERR5V;
-  baud_setting += (baud_setting * sigrow_val) / 1024;
-  USART3.BAUD = (int16_t)baud_setting;
-
-  // set 8 bit, no parity, 1 stop
-  USART3.CTRLC = USART_CHSIZE_8BIT_gc | USART_CMODE_ASYNCHRONOUS_gc | USART_PMODE_DISABLED_gc | USART_SBMODE_1BIT_gc;
-
-  // enable RX and TX interrupts
-  USART3.CTRLB |= USART_RXEN_bm;
-  USART3.CTRLB |= USART_TXEN_bm;
-
-  // enable serial receive complete interrupt
-  USART3.CTRLA |= USART_RXCIE_bm;
-  
-  //Set up the rx pin
-  pinMode(24, INPUT_PULLUP);
-
-  //Set up the tx pin
-  digitalWrite(25, HIGH);
-  pinMode(25, OUTPUT);
-
-
-  // Restore SREG content
-  SREG = oldSREG;
-
+  // configure UART
+  //Camino_InitPort(baudRate);
+  Camino_InitPort(baudRate);
 
   // initialize state
-  slaveState = STATE_WAITING_FOR_HEADER_BYTE_1;
+  receiveState = WAITING_FOR_HEADER_BYTE_1;
   packetStartTimeMs = 0;
 }
 
@@ -179,11 +145,11 @@ void Camino::sendResponsePacket() {
 
   // transmit the first byte in the packet
   packetTransmitIdx = 0;
-  USART3.TXDATAL = packetArray[packetTransmitIdx];
+  Camino_SendByte(packetArray[packetTransmitIdx]);
   packetTransmitIdx++;
 
   // enable the interrupt that triggers when the transmit buffer is empty
-  USART3.CTRLA |= USART_DREIE_bm;
+  Camino_EnableByteSentISR();
 }
 
 // Dispatch correct handler, and respond according to handler return
@@ -211,65 +177,66 @@ void Camino::processCommand(byte command, byte dataLength){
 }
 
 // Interrupt service routine for characters received from the serial port
-ISR(USART3_RXC_vect) {
+ISR(Camino_ByteReadable_vect) {
   byte c;
+
 
   // check for a timeout receiving data
   if ((millis() - packetStartTimeMs) >= COMMAND_TIMEOUT_MS) {
-    slaveState = STATE_WAITING_FOR_HEADER_BYTE_1;
+    receiveState = WAITING_FOR_HEADER_BYTE_1;
   }
 
   // read the byte from the USART
-  c = USART3.RXDATAL;
+  c = Camino_ReadByte();
 
   // select the operation based on the current state
-  switch(slaveState) {
-    case STATE_WAITING_FOR_HEADER_BYTE_1: {
+  switch(receiveState) {
+    case WAITING_FOR_HEADER_BYTE_1: {
       if (c == COMMAND_HEADER_BYTE_1) {
         // received first header byte, start the timeout timer
         packetStartTimeMs = millis();
-        slaveState = STATE_WAITING_FOR_HEADER_BYTE_2;
+        receiveState = WAITING_FOR_HEADER_BYTE_2;
       }
       break;
     }
 
-    case STATE_WAITING_FOR_HEADER_BYTE_2: {
+    case WAITING_FOR_HEADER_BYTE_2: {
       if (c == COMMAND_HEADER_BYTE_2) {
-        slaveState = STATE_WAITING_FOR_SLAVE_ADDRESS;
+        receiveState = WAITING_FOR_ADDRESS;
       } else {
-        slaveState = STATE_WAITING_FOR_HEADER_BYTE_1;
+        receiveState = WAITING_FOR_HEADER_BYTE_1;
       }
       break;
     }
 
-    case STATE_WAITING_FOR_SLAVE_ADDRESS: {
+    case WAITING_FOR_ADDRESS: {
       packetAddress = c;
       packetChecksum = c;
-      slaveState = STATE_WAITING_FOR_COMMAND_BYTE;
+      receiveState = WAITING_FOR_COMMAND_BYTE;
       break;
     }
 
-    case STATE_WAITING_FOR_COMMAND_BYTE: {
+    case WAITING_FOR_COMMAND_BYTE: {
       packetCommand = c;
       packetChecksum += c;
-      slaveState = STATE_WAITING_FOR_DATA_LENGTH_BYTE;
+      receiveState = WAITING_FOR_DATA_LENGTH_BYTE;
       break;
     }
 
-    case STATE_WAITING_FOR_DATA_LENGTH_BYTE: {
+    case WAITING_FOR_DATA_LENGTH_BYTE: {
       packetDataLength = c;
       packetChecksum += c;
       packetReceiveIdx = 0;
 
       if (packetDataLength == 0) {
-        slaveState = STATE_WAITING_FOR_CHECKSUM_BYTE;
+        receiveState = WAITING_FOR_CHECKSUM_BYTE;
       } else {
-        slaveState = STATE_WAITING_FOR_DATA_BYTES;
+        receiveState = WAITING_FOR_DATA_BYTES;
       }
       break;
     }
 
-    case STATE_WAITING_FOR_DATA_BYTES: {
+    case WAITING_FOR_DATA_BYTES: {
       if(packetReceiveIdx < MAX_DATA_LENGTH) {
         // only save data if it will fit in buffer
         packetDataArray[packetReceiveIdx] = c;
@@ -278,12 +245,12 @@ ISR(USART3_RXC_vect) {
       packetChecksum += c;
       if (packetReceiveIdx == packetDataLength) {
         // done getting data
-        slaveState = STATE_WAITING_FOR_CHECKSUM_BYTE;
+        receiveState = WAITING_FOR_CHECKSUM_BYTE;
       }
       break;
     }
 
-    case STATE_WAITING_FOR_CHECKSUM_BYTE: {
+    case WAITING_FOR_CHECKSUM_BYTE: {
       if (c == packetChecksum) {
         // verify this packet is for this address
         if (packetAddress == thisAddress) {
@@ -295,26 +262,30 @@ ISR(USART3_RXC_vect) {
         camino.respondWithResendRequest();
       }
       // ready for next packet
-      slaveState = STATE_WAITING_FOR_HEADER_BYTE_1;
+      receiveState = WAITING_FOR_HEADER_BYTE_1;
       break;
     }
   }
+
 }
 
 // Interrupt service routine triggered when the transmit buffer is empty
-ISR(USART3_DRE_vect) {
+ISR(Camino_ByteSent_vect) {
+
   // check if there is any more data in the packet to send
   if (packetTransmitIdx >= packetLength) {
     // nothing left to transmit
     // disable the interrupt that triggers when the transmit buffer is empty
-    USART3.CTRLA &= ~(USART_DREIE_bm);
+    Camino_DisableByteSentISR();
+
     // call hook
     endTransmission();
     return;
   }
 
+
   // transmit the next byte in the packet
-  USART3.TXDATAL = packetArray[packetTransmitIdx];
+  Camino_SendByte(packetArray[packetTransmitIdx]);
   packetTransmitIdx++;
 }
 
@@ -388,3 +359,5 @@ returnsType(unsigned int);
 returnsType(int);
 returnsType(unsigned long);
 returnsType(long);
+
+
