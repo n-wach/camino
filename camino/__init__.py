@@ -1,5 +1,6 @@
 from serial import Serial
 import logging
+
 logger = logging.getLogger(__name__)
 
 MAX_DATA_LENGTH = 250
@@ -43,7 +44,7 @@ class SerialConnection:
         if header_byte_1 == RESPONSE_HEADER_WITH_NO_DATA:
             return None
         elif header_byte_1 == RESPONSE_HEADER_WITH_DATA:
-            # slave is going to send some data with the response code
+            # arduino is going to send some data with the response code
             data_length = self.read_byte()
             checksum = data_length
             data = self.port.read(data_length)
@@ -97,7 +98,9 @@ class SerialConnection:
                 return response
             except CaminoException as e:
                 last_exception = e
-                logger.warning(f"Got error on communication attempt {attempt_number + 1}/{SEND_ATTEMPTS}: {e}")
+                logger.warning(
+                    f"Got error on communication attempt {attempt_number + 1}/{SEND_ATTEMPTS}: {e}"
+                )
                 # flushing
                 self.port.flush()
         raise CaminoException(

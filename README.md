@@ -1,11 +1,9 @@
 # Camino
 
-Camino enables blazing fast, non-intrusive communication over a serial connection between 
-Python and up to 256 Arduinos. It provides a simple way to call functions on a remote
-Arduino, sending and receiving up to 255 bytes of data. Besides the built in functions 
-(`digital_write`, `pin_mode`, `analog_read`, etc.), approximately 250 user-defined 
-functions can be defined.
-
+Camino enables blazing fast, non-intrusive communication between Python and
+one or more Arduinos over a serial connection. Besides built in functions
+(`digital_write`, `pin_mode`, etc.), Camino can call user-defined functions
+to send and recieve arbitrary data.
 
 ## Table of Contents
 
@@ -69,9 +67,9 @@ void setup() {
 
 void loop() {}
 
-// Example that returns the sum of some data (%256)
+// Example that returns the sum of some data
 void add(byte dataLength, byte *dataArray) {
-  byte sum = 0;
+  int sum = 0;
   for(byte i = 0; i < dataLength; i++){
     sum += dataArray[i];
   }
@@ -249,61 +247,22 @@ possible to PWM digital pins using only `digital_write` from within Python.
 
 ## Options
 
-A few options are listed in `Camino.h` for more advanced use cases.
+A few options are listed in [`options.h`](/src/options.h) for more advanced use cases,
+such as changing the ports/pins used.
 
-If you want to use values other than the defaults, you'll need to manually download
-and include the library in your sketch, and change them in `Camino.h`.
-
-### UART Port: `PORT`
-
-The UART port used by Camino. Can be `-1`, `0`, `1`, `2`. We default to UART0, which is 
-usually the USB port. This means you can't use Serial in your sketch. For
-other boards, like the Arduino Mega, you could have Camino listen on UART2 
-(`Serial2`) and use the normal Serial port in parallel.
-
-### Maximum Data Length in Packets: `MAX_DATA_LENGTH`
-
-The maximum length of the data section for packets (to and from the Arduino). 
-Value must be at least 16 and at most 255. Making it smaller reduces the
-memory footprint of Camino.
-
-### Command Timeout: `COMMAND_TIMEOUT_MS`.
-
-The command timeout in milliseconds. When a new byte in a packet is received,
-if this period has elapsed since the start of the packet, the earlier
-bytes are discarded and Camino assumes that a new packet is beginning.
-
-Defaults to 100 milliseconds. With a well-behaved connection, this should 
-never matter.
-
-### Transmission Hooks
-
-There are three possible macros that act as hooks into the lifecycle of a 
-packet transmission:
-
-- `initTransmissions()` is called in begin()
-- `beginTransmission()`is called before the first byte is sent in a response packet.
-- `endTransmission()` is called after the last byte is sent in a response packet.
-
-Sometimes you may need to do some preparation before a packet can be sent. 
-For instance, you may have a pin that enables a pull down resistor to remove 
-noise from your transmission line when not sending anything. Or when debugging, it
-may be useful to shine an LED when packets are being sent.
+If you want to use values other than the defaults, place `#define` calls before
+`#include "Camino.h"`.
 
 ## Protocol
 
-The protocol refers to the host Python machine as the Master, and the Arduino
-as the Slave.
+No Arduino may transmit unless it is in response to a command from Python, and
+only one response per command is allowed.
 
-The protocol follows a simple rule that no slave may transmit unless it is in
-response to a command from the master, and only one response per command is 
-allowed.
+A command packet always takes the same format. It specifies which Arduino is
+being addressed, which command should be run, and what data to pass to the
+command.
 
-The master's command packet always takes the same format. It specifies which
-Arduino is being addressed, which command should be run, and what data to
-pass to the command.
-
-The slave can respond in one of three ways:
+The Ardunio can respond in one of three ways:
 
 - Response with data, for instance with `digital_read`
 - Response with no data, for instance with `digital_write`
