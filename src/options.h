@@ -7,9 +7,10 @@
 
 // The UART port used by Camino. See arch.h for the supported values for each
 // architecture.
-#if !defined(PORT)
-  #define PORT 0
+#if !defined(CAMINO_SERIAL_PORT)
+  #define CAMINO_SERIAL_PORT 0
 #endif
+
 
 // The maximum length of the data section for packets (to and from the Arduino).
 // Value must be at least 16 and at most 250. Making it smaller reduces the
@@ -31,6 +32,7 @@
 // pull down resistor to remove noise from your transmission line when not
 // sending anything. Or when debugging, it may be useful to shine an LED when
 // packets are being sent.
+/*
 # if !defined(initTransmissions)
   // called in begin()
   #define initTransmissions() {}
@@ -43,5 +45,5 @@
   // called after the last byte is sent in a response packet.
   #define endTransmission() {}
 #endif
-
+*/
 #endif

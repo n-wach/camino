@@ -1,6 +1,5 @@
 #define IN_CAMINO_LIBRARY
 #include "Camino.h"
-//#include "options.h"
 #undef IN_CAMINO_LIBRARY
 
 
