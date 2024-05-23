@@ -2,8 +2,6 @@
 #define Camino_arch_h
 
 #include "Arduino.h"
-#include "options.h"
-
 
 
 // Architecture flags listed in packages/arduino/hardware/avr/1.8.6/boards.txt

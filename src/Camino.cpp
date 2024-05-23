@@ -1,11 +1,21 @@
 #define IN_CAMINO_LIBRARY
 #include "Camino.h"
-#undef IN_CAMINO_LIBRARY
 
 
 void __attribute__ ((weak)) initTransmissions() {};
 void __attribute__ ((weak)) beginTransmission() {};
 void __attribute__ ((weak)) endTransmission() {};
+
+extern void Camino_InitPort(unsigned long);
+extern void Camino_SendByte(byte b);
+extern void Camino_EnableByteSentISR();
+extern void Camino_DisableByteSentISR();
+extern byte Camino_ReadByte();
+
+extern const byte Camino_MAX_DATA_LENGTH;
+#define MAX_DATA_LENGTH Camino_MAX_DATA_LENGTH
+extern const byte Camino_COMMAND_TIMEOUT_MS;
+#define COMMAND_TIMEOUT_MS Camino_COMMAND_TIMEOUT_MS
 
 
 // Implementation. This was originally in a separate .cpp file. It's been

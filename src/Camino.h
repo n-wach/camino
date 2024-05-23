@@ -1,11 +1,9 @@
 #ifndef Camino_h
 #define Camino_h
 
-#ifdef IN_CAMINO_LIBRARY
-  #include "arch.h"
-#else
-  #include "arch_user.h"
-#endif
+#include "Arduino.h"
+#include "options.h"
+
 
 
 class Camino
@@ -22,28 +20,7 @@ class Camino
     void sendResponsePacket();
 };
 
-
-
-#ifdef IN_CAMINO_LIBRARY
-  extern void Camino_InitPort(unsigned long);
-  extern void Camino_SendByte(byte b);
-  extern void Camino_EnableByteSentISR();
-  extern void Camino_DisableByteSentISR();
-  extern byte Camino_ReadByte();
-
-  extern const byte Camino_MAX_DATA_LENGTH;
-  #define MAX_DATA_LENGTH Camino_MAX_DATA_LENGTH
-  extern const byte Camino_COMMAND_TIMEOUT_MS;
-  #define COMMAND_TIMEOUT_MS Camino_COMMAND_TIMEOUT_MS
-
-#else
-  byte packetDataArray[MAX_DATA_LENGTH];
-  byte packetArray[2 + 1 + MAX_DATA_LENGTH + 1];
-  byte Camino_COMMAND_TIMEOUT_MS  __attribute__((used, retain)) = COMMAND_TIMEOUT_MS;
-  byte Camino_MAX_DATA_LENGTH __attribute__((used, retain)) = MAX_DATA_LENGTH;
-  extern Camino camino;
-#endif
-
+extern Camino camino;
 
 typedef void Handler(byte dataLength, byte dataArray[]);
 typedef struct callable {

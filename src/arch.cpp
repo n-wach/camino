@@ -1,6 +1,5 @@
-#define IN_CAMINO_LIBRARY
 #include "arch.h"
-#undef IN_CAMINO_LIBRARY
+
 
 
 #if defined(ARDUINO_AVR_UNO) \
