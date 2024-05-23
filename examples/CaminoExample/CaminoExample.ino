@@ -23,6 +23,10 @@
     By Nathan Wachholz
 */
 
+//Put option overrides here, before including Camino.h
+#define CAMINO_SERIAL_PORT 0
+
+
 #include "Camino.h"
 
 void setup() {
